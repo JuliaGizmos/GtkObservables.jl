@@ -9,12 +9,13 @@ dd = dropdown(["one"=>()->println("you picked \"one\""),
 cb = checkbox(true, label="make window visible")
 
 # To illustrate some of Observables's propagation, we create a textbox
-# that shares the signal with the slider. You could alternatively
-# `bind` the two signals together.
-tb = textbox(Int; signal=n.signal)
+# that shares the observable with the slider.
+tb = textbox(Int; observable=n.observable)
 
 # Set up the mapping for the dropdown callbacks
-cbsig = map(g->g(), dd.mappedsignal)  # assign to variable to prevent garbage collection
+cbhandle = on(dd.mappedsignal) do cb  # assign to variable to prevent garbage collection
+    cb()
+end
 
 # Lay out the GUI. You can alternatively use `glade` and pass the
 # widgets to the constructors above (see the implementation of

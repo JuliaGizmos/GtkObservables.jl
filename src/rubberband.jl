@@ -1,6 +1,6 @@
 """
     signals = init_zoom_rubberband(canvas::GtkObservables.Canvas,
-                                   zr::Signal{ZoomRegion},
+                                   zr::Observable{ZoomRegion},
                                    initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == CONTROL),
                                    reset = btn->(btn.button == 1 && btn.clicktype == DOUBLE_BUTTON_PRESS && btn.modifiers == CONTROL),
                                    minpixels = 2)
@@ -20,42 +20,47 @@ mouse button 1). `minpixels` can be used for aborting rubber-band
 selections smaller than some threshold.
 """
 function init_zoom_rubberband(canvas::Canvas{U},
-                              zr::Signal{ZoomRegion{T}},
+                              zr::Observable{ZoomRegion{T}},
                               initiate::Function = zrb_init_default,
                               reset::Function = zrb_reset_default,
                               minpixels::Integer = 2) where {U,T}
-    enabled = Signal(true)
-    active = Signal(false)
+    enabled = Observable(true)
+    active = Observable(false)
     function update_zr(widget, bb)
-        push!(active, false)
-        fv = value(zr).fullview
-        push!(zr, ZoomRegion(fv, XY(interior(bb.xmin..bb.xmax, fv.x),
-                                    interior(bb.ymin..bb.ymax, fv.y))
-                             ))
+        active[] = false
+        fv = zr[].fullview
+        zr[] = ZoomRegion(fv, XY(interior(bb.xmin..bb.xmax, fv.x),
+                                 interior(bb.ymin..bb.ymax, fv.y))
+                          )
         nothing
     end
     rb = RubberBand(XY{U}(-1,-1), XY{U}(-1,-1), false, minpixels)
-    dummybtn = MouseButton{U}()
     local ctxcopy
-    init = map(filterwhen(enabled, dummybtn, canvas.mouse.buttonpress)) do btn
-        if initiate(btn)
-            push!(active, true)
-            ctxcopy = copy(getgc(canvas))
-            rb.pos1 = rb.pos2 = btn.position
-        elseif reset(btn)
-            push!(active, false)  # double-clicks need to cancel the previous single-click
-            push!(zr, GtkObservables.reset(value(zr)))
+    init = on(canvas.mouse.buttonpress) do btn
+        if enabled[]
+            if initiate(btn)
+                active[] = true
+                ctxcopy = copy(getgc(canvas))
+                rb.pos1 = rb.pos2 = btn.position
+            elseif reset(btn)
+                active[] = false  # double-clicks need to cancel the previous single-click
+                zr[] = GtkObservables.reset(zr[])
+            end
         end
         nothing
     end
-    drag = map(filterwhen(active, dummybtn, canvas.mouse.motion)) do btn
-        btn.button == 0 && return nothing
-        rubberband_move(canvas, rb, btn, ctxcopy)
+    drag = on(canvas.mouse.motion) do btn
+        if active[]
+            btn.button == 0 && return nothing
+            rubberband_move(canvas, rb, btn, ctxcopy)
+        end
     end
-    finish = map(filterwhen(active, dummybtn, canvas.mouse.buttonrelease)) do btn
-        btn.button == 0 && return nothing
-        push!(active, false)
-        rubberband_stop(canvas, rb, btn, ctxcopy, update_zr)
+    finish = on(canvas.mouse.buttonrelease) do btn
+        if active[]
+            btn.button == 0 && return nothing
+            active[] = false
+            rubberband_stop(canvas, rb, btn, ctxcopy, update_zr)
+        end
     end
     Dict("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end

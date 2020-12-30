@@ -8,52 +8,42 @@ using GtkObservables, Gtk.ShortNames, IntervalSets, Graphics, Colors,
       IdentityRanges
 using Test
 
-rtask = Observables.runner_task # starting with Observables 0.7.0, this became a Ref
-if isa(rtask, Base.RefValue)
-    rtask = rtask[]
-end
-if !istaskdone(rtask)
-    Observables.stop()
-    fetch(rtask)
-end
-
 include("tools.jl")
 
 @testset "Widgets" begin
     ## label
     l = label("Hello")
-    @test signal(l) == l.signal
-    @test signal(signal(l)) == l.signal
+    @test observable(l) == l.observable
+    @test observable(observable(l)) == l.observable
     @test get_gtk_property(l, :label, String) == "Hello"
-    push!(signal(l), "world")
-    rr()
+    l[] = "world"
     @test get_gtk_property(l, :label, String) == "world"
-    @test string(l) == string("Gtk.GtkLabelLeaf with ", string(signal(l)))
-    # map with keywords
-    lsig0 = map(l) do lbl  # "regular" map runs the function
-        lbl
+    @test string(l) == string("Gtk.GtkLabelLeaf with ", string(observable(l)))
+    # Test other elements of the Observables API
+    counter = Ref(0)
+    ofunc = on(l) do _
+        counter[] += 1
     end
-    rr()
-    @test value(lsig0) == "world"
-    lsig = map(l; init="foo") do lbl   # with "init", you avoid running
-        lbl
+    @test counter[] == 0
+    l[] = "changeme"
+    @test counter[] == 1
+    off(ofunc)
+    l[] = "and again"
+    @test counter[] == 1
+    ldouble = map(l) do str
+        str*str
     end
-    rr()
-    @test value(lsig) == "foo"
-    push!(l, "bar")
-    rr()
-    @test value(lsig) == "bar"
+    @test ldouble[] == "and againand again"
 
     ## checkbox
     w = Window("Checkbox")
     check = checkbox(label="click me")
     push!(w, check)
     Gtk.showall(w)
-    @test value(check) == false
+    @test check[] == false
     @test Gtk.G_.active(check.widget) == false
-    push!(check, true)
-    rr()
-    @test value(check)
+    check[] = true
+    @test check[]
     @test Gtk.G_.active(check.widget)
     destroy(w)
 
@@ -62,11 +52,10 @@ include("tools.jl")
     tgl = togglebutton(label="click me")
     push!(w, tgl)
     Gtk.showall(w)
-    @test value(tgl) == false
+    @test tgl[] == false
     @test Gtk.G_.active(tgl.widget) == false
-    push!(tgl, true)
-    rr()
-    @test value(tgl)
+    tgl[] = true
+    @test tgl[]
     @test Gtk.G_.active(tgl.widget)
     destroy(w)
 
@@ -78,105 +67,91 @@ include("tools.jl")
     push!(bx, num)
     Gtk.showall(win)
     @test get_gtk_property(txt, :text, String) == "Type something"
-    push!(txt, "ok")
-    rr()
+    txt[] = "ok"
     @test get_gtk_property(txt, :text, String) == "ok"
     set_gtk_property!(txt, :text, "other direction")
     signal_emit(widget(txt), :activate, Nothing)
-    rr()
-    @test value(txt) == "other direction"
+    @test txt[] == "other direction"
     @test get_gtk_property(num, :text, String) == "5"
-    push!(signal(num), 11, (sig, val, osig, capex) -> throw(capex.ex))
-    @test_throws ArgumentError rr()
-    push!(num, 8)
-    rr()
+    @test_throws ArgumentError num[] = 11
+    num[] = 8
     @test get_gtk_property(num, :text, String) == "8"
     meld = map(txt, num) do t, n
         join((t, n), 'X')
     end
-    rr()
-    @test value(meld) == "other directionX8"
-    push!(num, 4)
-    rr()
-    @test value(meld) == "other directionX4"
-    push!(txt, "4")
-    rr()
-    @test value(meld) == "4X4"
+    @test meld[] == "other directionX8"
+    num[] = 4
+    @test meld[] == "other directionX4"
+    txt[] = "4"
+    @test meld[] == "4X4"
     destroy(win)
 
     ## textarea (aka TextView)
     v = textarea("Type something longer")
     win = Window(v)
     Gtk.showall(win)
-    @test value(v) == "Type something longer"
-    push!(v, "ok")
-    rr()
+    @test v[] == "Type something longer"
+    v[] = "ok"
     @test get_gtk_property(Gtk.G_.buffer(v.widget), :text, String) == "ok"
     destroy(win)
 
     ## slider
     s = slider(1:15)
     sleep(0.01)    # For the Gtk eventloop
-    @test value(s) == 8
-    push!(s, 3)
-    rr()
-    @test value(s) == 3
+    @test s[] == 8
+    s[] = 3
+    @test s[] == 3
     s3 = slider(IdentityRange(-3:3))
     sleep(0.01)
-    @test value(s3) == 0
-    push!(s3, -3)
-    rr()
-    @test value(s3) == -3
+    @test s3[] == 0
+    s3[] = -3
+    @test s3[] == -3
 
-    # Use a single signal for two widgets
-    s2 = slider(1:15, signal=signal(s), orientation='v')
-    @test value(s2) == 3
-    push!(s2, 11)
-    rr()
-    @test value(s) == 11
+    # Use a single observable for two widgets
+    s2 = slider(1:15, observable=observable(s), orientation='v')
+    @test s2[] == 3
+    s2[] = 11
+    @test s[] == 11
     destroy(s2)
     destroy(s)
 
     # Updating the limits of the slider
     s = slider(1:15)
     sleep(0.01)    # For the Gtk eventloop
-    @test value(s) == 8
-    push!(s, 1:7, 5)
+    @test s[] == 8
+    s[] = 1:7, 5
     sleep(0.01)
-    rr()
-    @test value(s) == 5
+    @test s[] == 5
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
-    @test value(dd) == "Strawberry"
-    push!(dd, "Chocolate")
-    rr()
+    @test dd[] == "Strawberry"
+    dd[] = "Chocolate"
     @test get_gtk_property(dd, :active, Int) == 2
     destroy(dd.widget)
 
     r = Ref(0)
     dd = dropdown(["Five"=>x->x[]=5,
                    "Seven"=>x->x[]=7])
-    ddsig = map(f->f(r), dd.mappedsignal)
-    rr()
-    @test value(dd) == "Five"
+    on(dd.mappedsignal) do f
+        f(r)
+    end
+    dd[] = dd[]  # fire the callback for the initial value
+    @test dd[] == "Five"
     @test r[] == 5
-    push!(dd, "Seven")
-    run_till_empty()
-    @test value(dd) == "Seven"
+    dd[] = "Seven"
+    @test dd[] == "Seven"
     @test r[] == 7
-    push!(dd, "Five")
-    rr()
+    dd[] = "Five"
     @test r[] == 5
     destroy(dd.widget)
 
     ## spinbutton
     s = spinbutton(1:15)
     sleep(0.01)    # For the Gtk eventloop
-    @test value(s) == 1
-    push!(s, 3)
-    rr()
-    @test value(s) == 3
+    @test s[] == 1
+    s[] = 3
+    @test s[] == 3
     destroy(s)
 
     s = spinbutton(0:59, orientation="vertical")
@@ -186,34 +161,29 @@ include("tools.jl")
     # Updating the limits of the spinbutton
     s = spinbutton(1:15)
     sleep(0.01)    # For the Gtk eventloop
-    @test value(s) == 1
-    push!(s, 1:7, 5)
-    rr()
-    @test value(s) == 5
+    @test s[] == 1
+    s[] = 1:7, 5
+    @test s[] == 5
 
 
     ## cyclicspinbutton
     a = spinbutton(1:10, value = 5)
-    carry_up = Signal(false)
-    foreach(carry_up; init=nothing) do up
-        push!(a, value(a) - (-1)^up)
+    carry_up = Observable(false)
+    on(carry_up) do up
+        a[] = a[] - (-1)^up
     end
     b = cyclicspinbutton(1:3, carry_up)
-    run_till_empty()
-    @test value(a) == 5
-    @test value(b) == 1
-    push!(b, 2)
-    run_till_empty()
-    @test value(a) == 5
-    @test value(b) == 2
-    push!(b, 0)
-    run_till_empty()
-    @test value(a) == 4
-    @test value(b) == 3
-    push!(b, 4)
-    run_till_empty()
-    @test value(a) == 5
-    @test value(b) == 1
+    @test a[] == 5
+    @test b[] == 1
+    b[] = 2
+    @test a[] == 5
+    @test b[] == 2
+    b[] = 0
+    @test a[] == 4
+    @test b[] == 3
+    b[] = 4
+    @test a[] == 5
+    @test b[] == 1
     destroy(a)
 
     s = cyclicspinbutton(0:59, carry_up, orientation="vertical")
@@ -222,42 +192,35 @@ include("tools.jl")
 
     # timewidget
     t = Dates.Time(1,1,1)
-    s = Signal(t)
-    tw = timewidget(t, signal=s)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    s = Observable(t)
+    tw = timewidget(t, observable=s)
+    @test tw[] == s[] == t
     t = Dates.Time(2,2,2)
-    push!(tw, t)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    tw[] = t
+    @test tw[] == s[] == t
     t = Dates.Time(3,3,3)
-    push!(s, t)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    s[] = t
+    @test tw[] == s[] == t
 
     # datetimewidget
     t = DateTime(1,1,1,1,1,1)
-    s = Signal(t)
-    tw = datetimewidget(t, signal=s)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    s = Observable(t)
+    tw = datetimewidget(t, observable=s)
+    @test tw[] == s[] == t
     t = DateTime(2,2,2,2,2,2)
-    push!(tw, t)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    tw[] = t
+    @test tw[] == s[] == t
     t = DateTime(3,3,3,3,3,3)
-    push!(s, t)
-    run_till_empty()
-    @test value(tw) == value(s) == t
+    s[] = t
+    @test tw[] == s[] == t
 
     # progressbar
     pb = progressbar(1..10)
-    @test value(pb) == 1
-    push!(pb, 5)
-    run_till_empty()
-    @test value(pb) == 5
+    @test pb[] == 1
+    pb[] = 5
+    @test pb[] == 5
     pb = progressbar(2:8)
-    @test value(pb) == 2
+    @test pb[] == 2
 
 end
 
@@ -272,12 +235,10 @@ const counter = Ref(0)
         counter[] += 1
     end
     Gtk.showall(w)
-    rr()
     cc = counter[]  # map seems to fire it once, so record the "new" initial value
     click(b::GtkObservables.Button) = ccall((:gtk_button_clicked,Gtk.libgtk),Cvoid,(Ptr{Gtk.GObject},),b.widget)
     GC.gc(true)
     click(b)
-    rr()
     if VERSION >= v"1.2.0"
         @test counter[] == cc+1
     else
@@ -293,30 +254,27 @@ if Gtk.libgtk_version >= v"3.10"
     # To support GtkBuilder, we need this as the minimum libgtk version
     @testset "Compound widgets" begin
         ## player widget
-        s = Signal(1)
+        s = Observable(1)
         p = player(s, 1:8)
         win = Window("Compound", 400, 100) |> (g = Grid())
         g[1,1] = p
         Gtk.showall(win)
-        rr()
         btn_fwd = p.widget.step_forward
-        @test value(s) == 1
-        push!(btn_fwd, nothing)
-        run_till_empty()
-        @test value(s) == 2
-        push!(p.widget.play_forward, nothing)
+        @test s[] == 1
+        btn_fwd[] = nothing
+        @test s[] == 2
+        p.widget.play_forward[] = nothing
         for i = 1:7
-            run_till_empty()
-            sleep(0.1)
+                    sleep(0.1)
         end
-        @test value(s) == 8
+        @test s[] == 8
         destroy(win)
 
         p = player(1:1000)
         win = Window("Compound 2", 400, 100)
         push!(win, frame(p))
         Gtk.showall(win)
-        push!(widget(p).direction, 1)
+        widget(p).direction[] = 1
         destroy(win)  # this should not generate a lot of output
     end
 end
@@ -414,31 +372,23 @@ end
     motion  = map(btn->lastevent[] = string("motion to ", btn.position.x, ", ", btn.position.y),
                   c.mouse.motion)
     scroll  = map(btn->lastevent[] = "scroll", c.mouse.scroll)
-    rr()
     lastevent[] = "nothing"
     @test lastevent[] == "nothing"
     signal_emit(widget(c), "button-press-event", Bool, eventbutton(c, BUTTON_PRESS, 1))
     sleep(0.1)
-    rr()
     # FIXME: would prefer that this works on all Julia versions
     VERSION >= v"1.2.0" && @test lastevent[] == "press"
     signal_emit(widget(c), "button-release-event", Bool, eventbutton(c, GtkObservables.BUTTON_RELEASE, 1))
     sleep(0.1)
-    rr()
     sleep(0.1)
-    rr()
     VERSION >= v"1.2.0" && @test lastevent[] == "release"
     signal_emit(widget(c), "scroll-event", Bool, eventscroll(c, UP))
     sleep(0.1)
-    rr()
     sleep(0.1)
-    rr()
     VERSION >= v"1.2.0" && @test lastevent[] == "scroll"
     signal_emit(widget(c), "motion-notify-event", Bool, eventmotion(c, 0, UserUnit(20), UserUnit(15)))
     sleep(0.1)
-    rr()
     sleep(0.1)
-    rr()
     VERSION >= v"1.2.0" && @test lastevent[] == "motion to UserUnit(20.0), UserUnit(15.0)"
     destroy(win)
 end
@@ -465,7 +415,6 @@ end
     @test !popuptriggered[]
     evt = eventbutton(c, BUTTON_PRESS, 3)
     signal_emit(widget(c), "button-press-event", Bool, evt)
-    run_till_empty()
     @test popuptriggered[]
     destroy(win)
     destroy(popupmenu)
@@ -475,7 +424,7 @@ end
     img = testimage("lighthouse")
     c = canvas(UserUnit, size(img, 2), size(img, 1))
     win = Window(c)
-    xsig, ysig = Signal(20), Signal(20)
+    xsig, ysig = Observable(20), Observable(20)
     draw(c, xsig, ysig) do cnvs, x, y
         copy!(c, img)
         ctx = getgc(cnvs)
@@ -485,9 +434,7 @@ end
         stroke(ctx)
     end
     Gtk.showall(win)
-    rr()
-    push!(xsig, 100)
-    rr()
+    xsig[] = 100
     sleep(1)
     # Check that the displayed image is as expected
     if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
@@ -571,17 +518,15 @@ Base.axes(::Foo) = (Base.OneTo(7), Base.OneTo(9))
     @test zrbb.currentview.y == 35..75
     @test typeof(zrbb.currentview) == typeof(zr.currentview)
 
-    zrsig = Signal(zr)
-    push!(zrsig, (3:5, 4:7))
-    rr()
-    zr = value(zrsig)
+    zrsig = Observable(zr)
+    zrsig[] = (3:5, 4:7)
+    zr = zrsig[]
     @test zr.fullview.y == 1..80
     @test zr.fullview.x == 1..100
     @test zr.currentview.y == 3..5
     @test zr.currentview.x == 4..7
-    push!(zrsig, XY(1..2, 3..4))
-    rr()
-    zr = value(zrsig)
+    zrsig[] = XY(1..2, 3..4)
+    zr = zrsig[]
     @test zr.fullview.y == 1..80
     @test zr.fullview.x == 1..100
     @test zr.currentview.y == 3..4
@@ -602,13 +547,13 @@ end
 ### Simulate the mouse clicks, etc. to trigger zoom/pan
 # Again, this doesn't seem to work inside a @testset
 win = Window() |> (c = canvas(UserUnit))
-zr = Signal(ZoomRegion((1:11, 1:20)))
+zr = Observable(ZoomRegion((1:11, 1:20)))
 zoomrb = init_zoom_rubberband(c, zr)
 zooms = init_zoom_scroll(c, zr)
 pans = init_pan_scroll(c, zr)
 pand = init_pan_drag(c, zr)
 draw(c) do cnvs
-    set_coordinates(c, value(zr))
+    set_coordinates(c, zr[])
     fill!(c, colorant"blue")
 end
 Gtk.showall(win)
@@ -617,20 +562,12 @@ sleep(0.1)
 # Zoom by rubber band
 signal_emit(widget(c), "button-press-event", Bool,
             eventbutton(c, BUTTON_PRESS, 1, UserUnit(5), UserUnit(3), CONTROL))
-sleep(0.1)
-rr()
 signal_emit(widget(c), "motion-notify-event", Bool,
             eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
-sleep(0.1)
-rr()
 signal_emit(widget(c), "button-release-event", Bool,
             eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 5..10
-@test value(zr).currentview.y == 3..4
+@test zr[].currentview.x == 5..10
+@test zr[].currentview.y == 3..4
 # Ensure that the rubber band damage has been repaired
 if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
     fn = tempname()
@@ -643,55 +580,33 @@ end
 # Pan-drag
 signal_emit(widget(c), "button-press-event", Bool,
             eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
-sleep(0.1)
-rr()
 signal_emit(widget(c), "motion-notify-event", Bool,
             eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 4..9
-@test value(zr).currentview.y == 4..5
+@test zr[].currentview.x == 4..9
+@test zr[].currentview.y == 4..5
 
 # Reset
 signal_emit(widget(c), "button-press-event", Bool,
             eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 1..20
-@test value(zr).currentview.y == 1..11
+@test zr[].currentview.x == 1..20
+@test zr[].currentview.y == 1..11
 
 # Zoom-scroll
 signal_emit(widget(c), "scroll-event", Bool,
             eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 4..14
-@test value(zr).currentview.y == 2..8
+@test zr[].currentview.x == 4..14
+@test zr[].currentview.y == 2..8
 
 # Pan-scroll
 signal_emit(widget(c), "scroll-event", Bool,
             eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 5..15
-@test value(zr).currentview.y == 2..8
+@test zr[].currentview.x == 5..15
+@test zr[].currentview.y == 2..8
 
 signal_emit(widget(c), "scroll-event", Bool,
             eventscroll(c, DOWN, UserUnit(8), UserUnit(4), 0))
-sleep(0.1)
-rr()
-sleep(0.1)
-rr()
-@test value(zr).currentview.x == 5..15
-@test value(zr).currentview.y == 3..9
+@test zr[].currentview.x == 5..15
+@test zr[].currentview.y == 3..9
 
 destroy(win)
 

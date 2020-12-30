@@ -4,28 +4,32 @@ win = Window("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates
 push!(win, c)
 
-const lines = Signal([])   # the list of lines that we'll draw
-const newline = Signal([]) # the in-progress line (will be added to list above)
+const lines = Observable([])   # the list of lines that we'll draw
+const newline = Observable([]) # the in-progress line (will be added to list above)
 
 # Add mouse interactions
-const drawing = Signal(false)  # this will be true if we're dragging a new line
-sigstart = map(c.mouse.buttonpress) do btn
+const drawing = Observable(false)  # this will be true if we're dragging a new line
+sigstart = on(c.mouse.buttonpress) do btn
     if btn.button == 1 && btn.modifiers == 0
-        push!(drawing, true)   # start extending the line
-        push!(newline, [btn.position])
+        drawing[] = true   # start extending the line
+        newline[] = [btn.position]
     end
 end
 
 const dummybutton = MouseButton{UserUnit}()
-sigextend = map(filterwhen(drawing, dummybutton, c.mouse.motion)) do btn
-    push!(newline, push!(value(newline), btn.position))
+sigextend = on(c.mouse.motion) do btn
+    if drawing[]
+        push!(newline[], btn.position)
+        Observables.notify!(newline)
+    end
 end
 
-sigend = map(c.mouse.buttonrelease) do btn
+sigend = on(c.mouse.buttonrelease) do btn
     if btn.button == 1
-        push!(drawing, false)  # stop extending the line
-        push!(lines, push!(value(lines), value(newline)))
-        push!(newline, [])
+        drawing[] = false  # stop extending the line
+        push!(lines[], newline[])
+        newline.val = []
+        Observables.notify!(lines)
     end
 end
 

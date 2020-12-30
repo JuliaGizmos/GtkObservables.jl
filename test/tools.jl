@@ -1,11 +1,3 @@
-rr() = (Observables.run_till_now(); yield())
-function run_till_empty()
-    yield()
-    while !isempty(Observables._messages.data)
-        rr()
-    end
-end
-
 # Simulate user inputs
 function eventbutton(c, event_type, btn, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
     xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)

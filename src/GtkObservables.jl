@@ -32,7 +32,7 @@ export slider, button, checkbox, togglebutton, dropdown, textbox, textarea, spin
 export label
 export canvas, DeviceUnit, UserUnit, XY, MouseButton, MouseScroll, MouseHandler
 export player, timewidget, datetimewidget
-export signal, widget, frame
+export observable, widget, frame
 # Zoom/pan
 export ZoomRegion, zoom, pan_x, pan_y, init_zoom_rubberband, init_zoom_scroll,
        init_pan_scroll, init_pan_drag
@@ -40,16 +40,16 @@ export ZoomRegion, zoom, pan_x, pan_y, init_zoom_rubberband, init_zoom_scroll,
 # The generic Widget interface
 abstract type Widget end
 
-# A widget that gives out a signal of type T
+# A widget that gives out a observable of type T
 abstract type InputWidget{T}  <: Widget end
 
 """
-    signal(w) -> s
+    observable(w) -> obs
 
-Return the Observables.jl Signal `s` associated with widget `w`.
+Return the Observable `obs` associated with widget `w`.
 """
-signal(w::Widget) = w.signal
-signal(x::Signal) = x
+observable(w::Widget) = w.observable
+observable(x::Observable) = x
 
 """
     widget(w) -> gtkw::GtkWidget
@@ -58,13 +58,13 @@ Return the GtkWidget `gtkw` associated with widget `w`.
 """
 widget(w::Widget) = w.widget
 
-Base.push!(w::Widget, val) = push!(signal(w), val)
-
-Base.show(io::IO, w::Widget) = print(io, typeof(widget(w)), " with ", signal(w))
+Base.show(io::IO, w::Widget) = print(io, typeof(widget(w)), " with ", observable(w))
 Gtk.destroy(w::Widget) = destroy(widget(w))
-Observables.value(w::Widget) = value(signal(w))
-Base.map(f, w::Union{Widget,Signal}, ws::Union{Widget,Signal}...; kwargs...) = map(f, signal(w), map(signal, ws)...; kwargs...)
-Base.foreach(f, w::Union{Widget,Signal}, ws::Union{Widget,Signal}...; kwargs...) = foreach(f, signal(w), map(signal, ws)...; kwargs...)
+Base.getindex(w::Widget) = getindex(observable(w))
+Base.setindex!(w::Widget, val) = setindex!(observable(w), val)
+Observables.on(f, w::Widget; kwargs...) = on(f, observable(w); kwargs...)
+Observables.onany(f, w::Widget, ws::Union{Widget,Observable}...; kwargs...) = onany(f, observable(w)::Observable, map(observable, ws)...; kwargs...)
+Base.map(f, w::Widget, ws::Union{Widget,Observable}...; kwargs...) = map(f, observable(w)::Observable, map(observable, ws)...; kwargs...)
 
 # Define specific widgets
 include("widgets.jl")
@@ -117,17 +117,17 @@ function Graphics.BoundingBox(xy::XY)
     BoundingBox(minimum(xy.x), maximum(xy.x), minimum(xy.y), maximum(xy.y))
 end
 
-function Base.push!(zr::Signal{ZoomRegion{T}}, cv::XY{ClosedInterval{S}}) where {T,S}
-    fv = value(zr).fullview
-    push!(zr, ZoomRegion{T}(fv, cv))
+function Base.setindex!(zr::Observable{ZoomRegion{T}}, cv::XY{ClosedInterval{S}}) where {T,S}
+    fv = zr[].fullview
+    setindex!(zr, ZoomRegion{T}(fv, cv))
 end
 
-function Base.push!(zr::Signal{ZoomRegion{T}}, inds::Tuple{ClosedInterval,ClosedInterval}) where T
-    push!(zr, XY{ClosedInterval{T}}(inds[2], inds[1]))
+function Base.setindex!(zr::Observable{ZoomRegion{T}}, inds::Tuple{ClosedInterval,ClosedInterval}) where T
+    setindex!(zr, XY{ClosedInterval{T}}(inds[2], inds[1]))
 end
 
-function Base.push!(zr::Signal{ZoomRegion{T}}, inds::Tuple{AbstractUnitRange,AbstractUnitRange}) where T
-    push!(zr, ClosedInterval{T}.(inds))
+function Base.setindex!(zr::Observable{ZoomRegion{T}}, inds::Tuple{AbstractUnitRange,AbstractUnitRange}) where T
+    setindex!(zr, ClosedInterval{T}.(inds))
 end
 
 Gtk.reveal(c::Canvas, args...) = reveal(c.widget, args...)
@@ -146,7 +146,7 @@ function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     end
 end
 
-include("precompile.jl")
-VERSION >= v"1.4.2" && _precompile_() # https://github.com/JuliaLang/julia/pull/35378
+# include("precompile.jl")
+# VERSION >= v"1.4.2" && _precompile_() # https://github.com/JuliaLang/julia/pull/35378
 
 end # module

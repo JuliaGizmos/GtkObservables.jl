@@ -1,7 +1,0 @@
-TestImages
-FileIO
-Cairo
-@linux ImageMagick
-@windows ImageMagick
-@osx QuartzImageIO
-IdentityRanges

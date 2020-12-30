@@ -185,7 +185,7 @@ end
 """
     MouseHandler{U<:CairoUnit}
 
-A type with `Signal` fields for which you can `map` callback actions. The fields are:
+A type with `Observable` fields for which you can `map` callback actions. The fields are:
   - `buttonpress` for clicks (of type [`MouseButton`](@ref));
   - `buttonrelease` for release events (of type [`MouseButton`](@ref));
   - `motion` for move and drag events (of type [`MouseButton`](@ref));
@@ -195,10 +195,10 @@ A type with `Signal` fields for which you can `map` callback actions. The fields
 determines the coordinate system used for reporting mouse positions.
 """
 struct MouseHandler{U<:CairoUnit}
-    buttonpress::Signal{MouseButton{U}}
-    buttonrelease::Signal{MouseButton{U}}
-    motion::Signal{MouseButton{U}}
-    scroll::Signal{MouseScroll{U}}
+    buttonpress::Observable{MouseButton{U}}
+    buttonrelease::Observable{MouseButton{U}}
+    motion::Observable{MouseButton{U}}
+    scroll::Observable{MouseScroll{U}}
     ids::Vector{Culong}   # for disabling any of these callbacks
     widget::GtkCanvas
 
@@ -207,7 +207,7 @@ struct MouseHandler{U<:CairoUnit}
         btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
         scroll = MouseScroll(pos, UP, SHIFT)
         ids = Vector{Culong}(undef, 0)
-        handler = new{U}(Signal(btn), Signal(btn), Signal(btn), Signal(scroll), ids, canvas)
+        handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas)
         # Create the callbacks
         push!(ids, Gtk.on_signal_button_press(mousedown_cb, canvas, false, handler))
         push!(ids, Gtk.on_signal_button_release(mouseup_cb, canvas, false, handler))
@@ -272,7 +272,7 @@ using `do`-block notation:
 
     using Graphics, Colors
 
-    draw(c, imgsig, xsig, ysig) do cnvs, img, x, y
+    draw(c, imgobs, xsig, ysig) do cnvs, img, x, y
         copy!(cnvs, img)
         ctx = getgc(cnvs)
         set_source(ctx, colorant"red")
@@ -281,21 +281,23 @@ using `do`-block notation:
         stroke(ctx)
     end
 
-This would paint an image-Signal `imgsig` onto the canvas and then
+This would paint an image-Observable `imgobs` onto the canvas and then
 draw a red circle centered on `xsig`, `ysig`.
 """
-function Gtk.draw(drawfun::Function, c::Canvas, signals::Signal...)
+function Gtk.draw(drawfun::Function, c::Canvas, signals::Observable...)
     @guarded draw(c.widget) do widget
         # This used to have a `yield` in it to allow the Gtk event queue to run,
         # but that caused
         # https://github.com/JuliaGraphics/Gtk.jl/issues/368
         # and the bizarre failures in
         # https://github.com/JuliaImages/ImageView.jl/pull/153
-        drawfun(widget, map(value, signals)...)
+        drawfun(widget, map(getindex, signals)...)
     end
-    drawsig = map((values...)->draw(c.widget), signals...)
-    push!(c.preserved, drawsig)
-    drawsig
+    drawfunc = onany(signals...) do values...
+        draw(c.widget)
+    end
+    push!(c.preserved, drawfunc)
+    drawfunc
 end
 
 # Painting an image to a canvas
@@ -458,7 +460,7 @@ end
 
 """
     signals = init_pan_scroll(canvas::GtkObservables.Canvas,
-                              zr::Signal{ZoomRegion},
+                              zr::Observable{ZoomRegion},
                               filter_x::Function = evt->evt.modifiers == SHIFT || event.direction == LEFT || event.direction == RIGHT,
                               filter_y::Function = evt->evt.modifiers == 0 || event.direction == UP || event.direction == DOWN,
                               xpanflip = false,
@@ -481,30 +483,31 @@ You can flip the direction of either pan operation with `xpanflip` and
 `ypanflip`, respectively.
 """
 function init_pan_scroll(canvas::Canvas{U},
-                         zr::Signal{ZoomRegion{T}},
+                         zr::Observable{ZoomRegion{T}},
                          filter_x::Function = evt->(evt.modifiers & 0x0f) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
                          filter_y::Function = evt->(evt.modifiers & 0x0f) == 0 && (evt.direction == UP || evt.direction == DOWN),
                          xpanflip = false,
                          ypanflip  = false) where {U,T}
-    enabled = Signal(true)
-    dummyscroll = MouseScroll{U}()
-    pan = map(filterwhen(enabled, dummyscroll, canvas.mouse.scroll)) do event
-        s = 0.1*scrollpm(event.direction)
-        if filter_x(event)
-            # println("pan_x: ", event)
-            push!(zr, pan_x(value(zr), s))
-        elseif filter_y(event)
-            # println("pan_y: ", event)
-            push!(zr, pan_y(value(zr), s))
+    enabled = Observable(true)
+    pan = on(canvas.mouse.scroll) do event
+        if enabled[]
+            s = 0.1*scrollpm(event.direction)
+            if filter_x(event)
+                # println("pan_x: ", event)
+                setindex!(zr, pan_x(zr[], s))
+            elseif filter_y(event)
+                # println("pan_y: ", event)
+                setindex!(zr, pan_y(zr[], s))
+            end
         end
-        nothing
+        return nothing
     end
     Dict("enabled"=>enabled, "pan"=>pan)
 end
 
 """
     signals = init_pan_drag(canvas::GtkObservables.Canvas,
-                            zr::Signal{ZoomRegion},
+                            zr::Observable{ZoomRegion},
                             initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == 0))
 
 Initialize click-drag panning that updates `zr`. `signals` is a
@@ -519,38 +522,40 @@ click-drag panning has been met (by default, clicking mouse button
 1). The argument `btn` is a [`MouseButton`](@ref) event.
 """
 function init_pan_drag(canvas::Canvas{U},
-                       zr::Signal{ZoomRegion{T}},
+                       zr::Observable{ZoomRegion{T}},
                        initiate::Function = pandrag_init_default) where {U,T}
-    enabled = Signal(true)
-    active = Signal(false)
-    dummybtn = MouseButton{U}()
+    enabled = Observable(true)
+    active = Observable(false)
     local pos1, zr1, mtrx
-    init = map(filterwhen(enabled, dummybtn, canvas.mouse.buttonpress)) do btn
+    init = on(canvas.mouse.buttonpress) do btn
         if initiate(btn)
-            push!(active, true)
+            active[] = true
             # Because the user coordinates will change during panning,
             # convert to absolute position
             pos1 = XY(convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)...)
-            zr1 = value(zr).currentview
+            zr1 = zr[].currentview
             m = Cairo.get_matrix(getgc(canvas))
             mtrx = inv([m.xx m.xy 0; m.yx m.yy 0; m.x0 m.y0 1])
         end
-        nothing
+        return nothing
     end
-    drag = map(filterwhen(active, dummybtn, canvas.mouse.motion)) do btn
-        btn.button == 0 && return nothing
-        xd, yd = convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)
-        dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1]
-        fv = value(zr).fullview
-        cv = XY(interior(minimum(zr1.x)-dx..maximum(zr1.x)-dx, fv.x),
-                interior(minimum(zr1.y)-dy..maximum(zr1.y)-dy, fv.y))
-        if cv != value(zr).currentview
-            push!(zr, ZoomRegion(fv, cv))
+    drag = on(canvas.mouse.motion) do btn
+        if active[]
+            btn.button == 0 && return nothing
+            xd, yd = convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)
+            dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1]
+            fv = zr[].fullview
+            cv = XY(interior(minimum(zr1.x)-dx..maximum(zr1.x)-dx, fv.x),
+                    interior(minimum(zr1.y)-dy..maximum(zr1.y)-dy, fv.y))
+            if cv != zr[].currentview
+                setindex!(zr, ZoomRegion(fv, cv))
+            end
         end
     end
-    finish = map(filterwhen(active, dummybtn, canvas.mouse.buttonrelease)) do btn
+    finish = on(canvas.mouse.buttonrelease) do btn
         btn.button == 0 && return nothing
-        push!(active, false)
+        active[] = false
+        return nothing
     end
     Dict("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
@@ -559,7 +564,7 @@ pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
 
 """
     signals = init_zoom_scroll(canvas::GtkObservables.Canvas,
-                               zr::Signal{ZoomRegion},
+                               zr::Observable{ZoomRegion},
                                filter::Function = evt->evt.modifiers == CONTROL,
                                focus::Symbol = :pointer,
                                factor = 2.0,
@@ -586,16 +591,15 @@ You can change the amount of zooming via `factor` and the direction of
 zooming with `flip`.
 """
 function init_zoom_scroll(canvas::Canvas{U},
-                          zr::Signal{ZoomRegion{T}},
+                          zr::Observable{ZoomRegion{T}},
                           filter::Function = evt->(evt.modifiers & 0x0f) == CONTROL,
                           focus::Symbol = :pointer,
                           factor = 2.0,
                           flip = false) where {U,T}
     focus == :pointer || focus == :center || error("focus must be :pointer or :center")
-    enabled = Signal(true)
-    dummyscroll = MouseScroll{U}()
-    zm = map(filterwhen(enabled, dummyscroll, canvas.mouse.scroll)) do event
-        if filter(event)
+    enabled = Observable(true)
+    zm = on(canvas.mouse.scroll) do event
+        if enabled[] && filter(event)
             # println("zoom scroll: ", event)
             s = factor
             if event.direction == UP
@@ -604,12 +608,12 @@ function init_zoom_scroll(canvas::Canvas{U},
             if flip
                 s = 1/s
             end
-            if focus == :pointer
+            if focus === :pointer
                 # println("zoom focus: ", event)
-                push!(zr, zoom(value(zr), s, event.position))
+                setindex!(zr, zoom(zr[], s, event.position))
             else
                 # println("zoom center: ", event)
-                push!(zr, zoom(value(zr), s))
+                setindex!(zr, zoom(zr[], s))
             end
         end
     end
@@ -625,12 +629,12 @@ scrollpm(direction::Integer) =
 ##### Callbacks #####
 function mousedown_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
     evt = unsafe_load(eventp)
-    push!(handler.buttonpress, MouseButton{U}(handler.widget, evt))
+    handler.buttonpress[] = MouseButton{U}(handler.widget, evt)
     Int32(false)
 end
 function mouseup_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
     evt = unsafe_load(eventp)
-    push!(handler.buttonrelease, MouseButton{U}(handler.widget, evt))
+    handler.buttonrelease[] = MouseButton{U}(handler.widget, evt)
     Int32(false)
 end
 function mousemove_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
@@ -646,11 +650,11 @@ function mousemove_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
     elseif evt.state & Gtk.GdkModifierType.BUTTON3 != 0
         button = 3
     end
-    push!(handler.motion, MouseButton(pos, button, evt.event_type, evt.state))
+    handler.motion[] = MouseButton(pos, button, evt.event_type, evt.state)
     Int32(false)
 end
 function mousescroll_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
     evt = unsafe_load(eventp)
-    push!(handler.scroll, MouseScroll{U}(handler.widget, evt))
+    handler.scroll[] = MouseScroll{U}(handler.widget, evt)
     Int32(false)
 end
