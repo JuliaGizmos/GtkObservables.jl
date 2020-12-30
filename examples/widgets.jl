@@ -1,4 +1,4 @@
-using GtkReactive, Gtk.ShortNames, Colors
+using GtkObservables, Gtk.ShortNames, Colors
 
 # Create some controls
 n = slider(1:10)
@@ -8,7 +8,7 @@ dd = dropdown(["one"=>()->println("you picked \"one\""),
               label="dropdown")
 cb = checkbox(true, label="make window visible")
 
-# To illustrate some of Reactive's propagation, we create a textbox
+# To illustrate some of Observables's propagation, we create a textbox
 # that shares the signal with the slider. You could alternatively
 # `bind` the two signals together.
 tb = textbox(Int; signal=n.signal)
@@ -19,7 +19,7 @@ cbsig = map(g->g(), dd.mappedsignal)  # assign to variable to prevent garbage co
 # Lay out the GUI. You can alternatively use `glade` and pass the
 # widgets to the constructors above (see the implementation of
 # `player` in `extrawidgets.jl` for an example).
-mainwin = Window("GtkReactive")
+mainwin = Window("GtkObservables")
 vbox = Box(:v)
 hbox = Box(:h)
 push!(vbox, hbox)

@@ -2,16 +2,16 @@
 
 Let's create a `slider` object:
 ```jldoctest demo1
-julia> using Gtk.ShortNames, GtkReactive
+julia> using Gtk.ShortNames, GtkObservables
 
 julia> sl = slider(1:11)
 Gtk.GtkScaleLeaf with 1: "input" = 6 Int64
 
 julia> typeof(sl)
-GtkReactive.Slider{Int64}
+GtkObservables.Slider{Int64}
 ```
 
-A `GtkReactive.Slider` holds two important objects: a `Signal`
+A `GtkObservables.Slider` holds two important objects: a `Signal`
 (encoding the "state" of the widget) and a `GtkWidget` (which controls
 the on-screen display). We can extract both of these components:
 
@@ -48,10 +48,10 @@ that we used to create `sl`. Now drag the slider all the way to the
 right, and then see what happened to `sl`:
 
 ```@meta
-push!(sl, 11)    # Updates the value of a Signal. See the Reactive.jl docs.
-Reactive.run_till_now() # remember, Reactive is asynchronous! This forces the push! to run now.
+push!(sl, 11)    # Updates the value of a Signal. See the Observables.jl docs.
+Observables.run_till_now() # remember, Observables is asynchronous! This forces the push! to run now.
 sleep(1)
-Reactive.run_till_now()
+Observables.run_till_now()
 ```
 
 ```jldoctest demo1
@@ -94,7 +94,7 @@ to allow updates to propagate to a second `Signal`:
 ```
 a = button("a")
 x = Signal(1)
-y_temp = map(sin, x)    # see the Reactive.jl documentation for info about using `map`
+y_temp = map(sin, x)    # see the Observables.jl documentation for info about using `map`
 y = map(_ -> value(y_temp), a)
 ```
 Subsequent `push!`es into `x` will update `y_temp`, but not `y`. Only

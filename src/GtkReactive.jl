@@ -1,11 +1,11 @@
-module GtkReactive
+module GtkObservables
 
 if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optlevel"))
     @eval Base.Experimental.@optlevel 1
 end
 
 using Gtk, Colors, FixedPointNumbers, Reexport
-@reexport using Reactive
+@reexport using Observables
 using Graphics
 using Graphics: set_coordinates, BoundingBox
 using IntervalSets, RoundingIntegers
@@ -46,7 +46,7 @@ abstract type InputWidget{T}  <: Widget end
 """
     signal(w) -> s
 
-Return the Reactive.jl Signal `s` associated with widget `w`.
+Return the Observables.jl Signal `s` associated with widget `w`.
 """
 signal(w::Widget) = w.signal
 signal(x::Signal) = x
@@ -62,7 +62,7 @@ Base.push!(w::Widget, val) = push!(signal(w), val)
 
 Base.show(io::IO, w::Widget) = print(io, typeof(widget(w)), " with ", signal(w))
 Gtk.destroy(w::Widget) = destroy(widget(w))
-Reactive.value(w::Widget) = value(signal(w))
+Observables.value(w::Widget) = value(signal(w))
 Base.map(f, w::Union{Widget,Signal}, ws::Union{Widget,Signal}...; kwargs...) = map(f, signal(w), map(signal, ws)...; kwargs...)
 Base.foreach(f, w::Union{Widget,Signal}, ws::Union{Widget,Signal}...; kwargs...) = foreach(f, signal(w), map(signal, ws)...; kwargs...)
 

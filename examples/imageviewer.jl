@@ -1,4 +1,4 @@
-using TestImages, GtkReactive, Gtk.ShortNames
+using TestImages, GtkObservables, Gtk.ShortNames
 
 img = testimage("lighthouse")
 

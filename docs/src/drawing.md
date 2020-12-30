@@ -1,6 +1,6 @@
 # A simple drawing program
 
-Aside from widgets, GtkReactive also adds canvas interactions,
+Aside from widgets, GtkObservables also adds canvas interactions,
 specifically handling of mouse clicks and scroll events. We can
 explore some of these tools by building a simple program for drawing
 lines.
@@ -8,7 +8,7 @@ lines.
 Let's begin by creating a window with a canvas in it:
 
 ```julia
-using Gtk.ShortNames, GtkReactive, Graphics, Colors
+using Gtk.ShortNames, GtkObservables, Graphics, Colors
 
 win = Window("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates
@@ -41,15 +41,15 @@ const newline = Signal([]) # the in-progress line (will be added to list above)
 ```
 
 Now, let's make our application respond to mouse-clicks. An important
-detail about a `GtkReactive.Canvas` object is that it contains a
+detail about a `GtkObservables.Canvas` object is that it contains a
 [`MouseHandler`](@ref), accessible with `c.mouse`; this object
-contains `Reactive.Signal` objects for mouse button press/release
+contains `Observables.Signal` objects for mouse button press/release
 events, mouse movements, and scrolling:
 
 ```julia
 const drawing = Signal(false)  # this will become true if we're actively dragging
 
-# c.mouse.buttonpress is a `Reactive.Signal` that updates whenever the
+# c.mouse.buttonpress is a `Observables.Signal` that updates whenever the
 # user clicks the mouse inside the canvas. The value of this signal is
 # a MouseButton which contains position and other information.
 
@@ -70,7 +70,7 @@ end
 
 `sigstart` is also a signal; we won't do anything with it, but we
 assigned it to a variable to prevent it from being
-garbage-collected. (We could use `GtkReactive.gc_preserve(win,
+garbage-collected. (We could use `GtkObservables.gc_preserve(win,
 sigstart)` if we wanted to keep it alive for at least as long as `win`
 is active.)
 
@@ -80,7 +80,7 @@ additional vertex:
 
 ```julia
 const dummybutton = MouseButton{UserUnit}()
-# See the Reactive.jl documentation for `filterwhen`
+# See the Observables.jl documentation for `filterwhen`
 sigextend = map(filterwhen(drawing, dummybutton, c.mouse.motion)) do btn
     # while dragging, extend `newline` with the most recent point
     push!(newline, push!(value(newline), btn.position))

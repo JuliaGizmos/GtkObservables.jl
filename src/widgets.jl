@@ -11,7 +11,7 @@ signal to `value` (if specified as an input) or extracting and
 returning its current value (if the `value` input is `nothing`).
 
 Optionally specify the element type `T`; if `signal` is a
-`Reactive.Signal`, then `T` must agree with `eltype(signal)`.
+`Observables.Signal`, then `T` must agree with `eltype(signal)`.
 """
 init_wsigval(::Nothing, ::Nothing; default=nothing) = _init_wsigval(nothing, default)
 init_wsigval(::Nothing, value; default=nothing) = _init_wsigval(typeof(value), nothing, value)
@@ -108,7 +108,7 @@ slider(signal::Signal, widget::GtkScaleLeaf, id, preserved = []) =
 Create a slider widget with the specified `range`. Optionally provide:
   - the GtkScale `widget` (by default, creates a new one)
   - the starting `value` (defaults to the median of `range`)
-  - the (Reactive.jl) `signal` coupled to this slider (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this slider (by default, creates a new signal)
   - the `orientation` of the slider.
 """
 function slider(range::AbstractRange{T};
@@ -187,7 +187,7 @@ checkbox(signal::Signal, widget::GtkCheckButtonLeaf, id, preserved=[]) =
 Provide a checkbox with the specified starting (boolean)
 `value`. Optionally provide:
   - a GtkCheckButton `widget` (by default, creates a new one)
-  - the (Reactive.jl) `signal` coupled to this checkbox (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this checkbox (by default, creates a new signal)
   - a display `label` for this widget
 """
 function checkbox(value::Bool; widget=nothing, signal=nothing, label="", own=nothing)
@@ -241,7 +241,7 @@ togglebutton(signal::Signal, widget::GtkToggleButtonLeaf, id, preserved=[]) =
 Provide a togglebutton with the specified starting (boolean)
 `value`. Optionally provide:
   - a GtkCheckButton `widget` (by default, creates a new one)
-  - the (Reactive.jl) `signal` coupled to this button (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this button (by default, creates a new signal)
   - a display `label` for this widget
 """
 function togglebutton(value::Bool; widget=nothing, signal=nothing, label="", own=nothing)
@@ -294,7 +294,7 @@ button(signal::Signal, widget::Union{GtkButtonLeaf,GtkToolButtonLeaf}, id) =
 
 Create a push button with text-label `label`. Optionally provide:
   - a GtkButton `widget` (by default, creates a new one)
-  - the (Reactive.jl) `signal` coupled to this button (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this button (by default, creates a new signal)
 """
 function button(;
                 label::Union{Nothing,String,Symbol}=nothing,
@@ -349,7 +349,7 @@ textbox(signal::Signal, widget::GtkButtonLeaf, id, preserved = []) =
 Create a box for entering text. `value` is the starting value; if you
 don't want to provide an initial value, you can constrain the type
 with `T`. Optionally specify the allowed range (e.g., `-10:10`)
-for numeric entries, and/or provide the (Reactive.jl) `signal` coupled
+for numeric entries, and/or provide the (Observables.jl) `signal` coupled
 to this text box. Finally, you can specify which Gtk signal (e.g.
 `activate`, `changed`) you'd like the widget to update with.
 """
@@ -447,7 +447,7 @@ end
     textarea(value=""; widget=nothing, signal=nothing)
 
 Creates an extended text-entry area. Optionally provide a GtkTextView `widget`
-and/or the (Reactive.jl) `signal` associated with this widget. The
+and/or the (Observables.jl) `signal` associated with this widget. The
 `signal` updates when you type.
 """
 function textarea(value::String="";
@@ -509,7 +509,7 @@ Create a "dropdown" widget. `choices` can be a vector (or other iterable) of
 options. Optionally specify
   - the GtkComboBoxText `widget` (by default, creates a new one)
   - the starting `value`
-  - the (Reactive.jl) `signal` coupled to this slider (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this slider (by default, creates a new signal)
   - whether the widget should allow text entry
 
 # Examples
@@ -677,7 +677,7 @@ end
 Create a text label displaying `value` as a string; new values may
 displayed by pushing to the widget. Optionally specify
   - the GtkLabel `widget` (by default, creates a new one)
-  - the (Reactive.jl) `signal` coupled to this label (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this label (by default, creates a new signal)
 """
 function label(value;
                widget=nothing,
@@ -800,7 +800,7 @@ spinbutton(signal::Signal, widget::GtkSpinButtonLeaf, id, preserved = []) =
 Create a spinbutton widget with the specified `range`. Optionally provide:
   - the GtkSpinButton `widget` (by default, creates a new one)
   - the starting `value` (defaults to the start of `range`)
-  - the (Reactive.jl) `signal` coupled to this spinbutton (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this spinbutton (by default, creates a new signal)
   - the `orientation` of the spinbutton.
 """
 function spinbutton(range::AbstractRange{T};
@@ -889,7 +889,7 @@ higher than the maximum of the range. When cyclicspinbutton is updated with a va
 than the minimum of the range `carry_up` is updated with `false`. Optional arguments are:
   - the GtkSpinButton `widget` (by default, creates a new one)
   - the starting `value` (defaults to the start of `range`)
-  - the (Reactive.jl) `signal` coupled to this cyclicspinbutton (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this cyclicspinbutton (by default, creates a new signal)
   - the `orientation` of the cyclicspinbutton.
 """
 function cyclicspinbutton(range::AbstractRange{T}, carry_up::Signal{Bool};
@@ -973,12 +973,12 @@ interval2fraction(x::AbstractInterval, i) = (i - minimum(x))/IntervalSets.width(
 Create a progressbar displaying the current state in the given interval; new iterations may be
 displayed by pushing to the widget. Optionally specify
   - the GtkProgressBar `widget` (by default, creates a new one)
-  - the (Reactive.jl) `signal` coupled to this progressbar (by default, creates a new signal)
+  - the (Observables.jl) `signal` coupled to this progressbar (by default, creates a new signal)
 
 # Examples
 
 ```julia-repl
-julia> using GtkReactive
+julia> using GtkObservables
 
 julia> using IntervalSets
 

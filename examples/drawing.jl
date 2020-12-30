@@ -1,4 +1,4 @@
-using Gtk.ShortNames, GtkReactive, Graphics, Colors
+using Gtk.ShortNames, GtkObservables, Graphics, Colors
 
 win = Window("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates

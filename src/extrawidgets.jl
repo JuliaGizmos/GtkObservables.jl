@@ -129,7 +129,7 @@ end
     timewidget(time)
 
 Return a time widget that includes the `Time` and a `GtkFrame` with the hour, minute, and
-second widgets in it. You can specify the specific `GtkFrame` widget (useful when using the `Gtk.Builder` and `glade`). Time is guaranteed to be positive. 
+second widgets in it. You can specify the specific `GtkFrame` widget (useful when using the `Gtk.Builder` and `glade`). Time is guaranteed to be positive.
 """
 function timewidget(t1::Dates.Time; widget=nothing, signal=nothing)
     zerotime = Dates.Time(0,0,0) # convenient since we'll use it frequently
@@ -150,7 +150,7 @@ function timewidget(t1::Dates.Time; widget=nothing, signal=nothing)
     end
     t2 = map(last, H) # here is the final time
     bind!(signal, t2) # we connect the input and output times so that any update to the resulting time will go into the input signal and actually show on the widgets
-    Sint = Signal(Dates.value(first(value(S)))) # necessary for now, until range-like GtkReactive.widgets can accept other ranges.
+    Sint = Signal(Dates.value(first(value(S)))) # necessary for now, until range-like GtkObservables.widgets can accept other ranges.
     Ssb = spinbutton(-1:60, widget=b["second"], signal=Sint) # allow for values outside the actual range of seconds so that we'll be able to increase and decrease minutes.
     foreach(Sint) do x
         Δ = Dates.Second(x) - first(value(S)) # how much did we change by, this should always be ±1
@@ -161,7 +161,7 @@ function timewidget(t1::Dates.Time; widget=nothing, signal=nothing)
     end
     Sint2 = map(src -> Dates.value(Dates.Second(src)), t2) # Any change in the value of the seconds, namely 60 -> 0, needs to loop back into the beginning of this last chain of events.
     Sint3 = droprepeats(Sint2) # important, otherwise we get an endless update loop
-    bind!(Sint, Sint3, false) # final step of connecting the two 
+    bind!(Sint, Sint3, false) # final step of connecting the two
     # everything is the same for minutes:
     Mint = Signal(Dates.value(first(value(M))))
     Msb = spinbutton(-1:60, widget=b["minute"], signal=Mint)
@@ -203,7 +203,7 @@ end
 Return a datetime widget that includes the `DateTime` and a `GtkBox` with the
 year, month, day, hour, minute, and second widgets in it. You can specify the
 specific `SpinButton` widgets for the hour, minute, and second (useful when using
-`Gtk.Builder` and `glade`). Date and time are guaranteed to be positive. 
+`Gtk.Builder` and `glade`). Date and time are guaranteed to be positive.
 """
 function datetimewidget(t1::DateTime; widget=nothing, signal=nothing)
     zerotime = DateTime(0,1,1,0,0,0)

@@ -1,13 +1,13 @@
 # Zoom and pan
 
-In addition to low-level canvas support, GtkReactive also provides
+In addition to low-level canvas support, GtkObservables also provides
 high-level functions to make it easier implement rubber-banding, pan,
 and zoom functionality.
 
 To illustrate these tools, let's first open a window with a drawing canvas:
 
 ```jldoctest demozoom
-julia> using Gtk.ShortNames, GtkReactive, TestImages
+julia> using Gtk.ShortNames, GtkObservables, TestImages
 
 julia> win = Window("Image");
 

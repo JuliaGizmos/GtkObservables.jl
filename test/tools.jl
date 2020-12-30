@@ -1,14 +1,14 @@
-rr() = (Reactive.run_till_now(); yield())
+rr() = (Observables.run_till_now(); yield())
 function run_till_empty()
     yield()
-    while !isempty(Reactive._messages.data)
+    while !isempty(Observables._messages.data)
         rr()
     end
 end
 
 # Simulate user inputs
 function eventbutton(c, event_type, btn, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
-    xd, yd = GtkReactive.convertunits(DeviceUnit, c, x, y)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
     Gtk.GdkEventButton(event_type,
                        Gtk.gdk_window(widget(c)),
                        Int8(0),
@@ -21,7 +21,7 @@ function eventbutton(c, event_type, btn, x=DeviceUnit(0), y=DeviceUnit(0), state
                        0.0, 0.0)
 end
 function eventscroll(c, direction, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
-    xd, yd = GtkReactive.convertunits(DeviceUnit, c, x, y)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
     Gtk.GdkEventScroll(Gtk.GdkEventType.SCROLL,
                        Gtk.gdk_window(widget(c)),
                        Int8(0),
@@ -34,7 +34,7 @@ function eventscroll(c, direction, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
                        0.0, 0.0)
 end
 function eventmotion(c, btn, x, y)
-    xd, yd = GtkReactive.convertunits(DeviceUnit, c, x, y)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
     Gtk.GdkEventMotion(Gtk.GdkEventType.MOTION_NOTIFY,
                        Gtk.gdk_window(widget(c)),
                        Int8(0),

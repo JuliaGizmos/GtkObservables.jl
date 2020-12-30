@@ -127,7 +127,7 @@ The fieldnames are the same as the argument names above.
     MouseButton{DeviceUnit}()
 
 Create a "dummy" MouseButton event. Often useful for the fallback to
-Reactive's `filterwhen`.
+Observables's `filterwhen`.
 """
 struct MouseButton{U<:CairoUnit}
     position::XY{U}
@@ -161,7 +161,7 @@ the click; they may be 0 (no modifiers) or any combination of `SHIFT`,
     MouseScroll{DeviceUnit}()
 
 Create a "dummy" MouseScroll event. Often useful for the fallback to
-Reactive's `filterwhen`.
+Observables's `filterwhen`.
 """
 struct MouseScroll{U<:CairoUnit}
     position::XY{U}
@@ -218,7 +218,7 @@ struct MouseHandler{U<:CairoUnit}
 end
 
 """
-    GtkReactive.Canvas{U}(w=-1, h=-1, own=true)
+    GtkObservables.Canvas{U}(w=-1, h=-1, own=true)
 
 Create a canvas for drawing and interaction. The relevant fields are:
   - `canvas`: the "raw" Gtk widget (from Gtk.jl)
@@ -249,18 +249,18 @@ struct Canvas{U}
 end
 
 """
-    canvas(U=DeviceUnit, w=-1, h=-1) - c::GtkReactive.Canvas
+    canvas(U=DeviceUnit, w=-1, h=-1) - c::GtkObservables.Canvas
 
 Create a canvas for drawing and interaction. Optionally specify the
 width `w` and height `h`. `U` refers to the units for the canvas (for
 both drawing and reporting mouse pointer positions), see
-[`DeviceUnit`](@ref) and [`UserUnit`](@ref). See also [`GtkReactive.Canvas`](@ref).
+[`DeviceUnit`](@ref) and [`UserUnit`](@ref). See also [`GtkObservables.Canvas`](@ref).
 """
 canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1) where {U<:CairoUnit} = Canvas{U}(w, h)
 canvas(w::Integer, h::Integer) = canvas(DeviceUnit, w, h)
 
 """
-    draw(f, c::GtkReactive.Canvas, signals...)
+    draw(f, c::GtkObservables.Canvas, signals...)
 
 Supply a draw function `f` for `c`. This will be called whenever the
 canvas is resized or whenever any of the input `signals` update. `f`
@@ -457,7 +457,7 @@ function zoom(zr::ZoomRegion, s)
 end
 
 """
-    signals = init_pan_scroll(canvas::GtkReactive.Canvas,
+    signals = init_pan_scroll(canvas::GtkObservables.Canvas,
                               zr::Signal{ZoomRegion},
                               filter_x::Function = evt->evt.modifiers == SHIFT || event.direction == LEFT || event.direction == RIGHT,
                               filter_y::Function = evt->evt.modifiers == 0 || event.direction == UP || event.direction == DOWN,
@@ -465,7 +465,7 @@ end
                               ypanflip  = false)
 
 Initialize panning-by-mouse-scroll for `canvas` and update
-`zr`. `signals` is a dictionary holding the Reactive.jl signals needed
+`zr`. `signals` is a dictionary holding the Observables.jl signals needed
 for scroll-panning; you can push `true/false` to `signals["enabled"]`
 to turn scroll-panning on and off, respectively. Your application is
 responsible for making sure that `signals` does not get
@@ -503,12 +503,12 @@ function init_pan_scroll(canvas::Canvas{U},
 end
 
 """
-    signals = init_pan_drag(canvas::GtkReactive.Canvas,
+    signals = init_pan_drag(canvas::GtkObservables.Canvas,
                             zr::Signal{ZoomRegion},
                             initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == 0))
 
 Initialize click-drag panning that updates `zr`. `signals` is a
-dictionary holding the Reactive.jl signals needed for pan-drag; you
+dictionary holding the Observables.jl signals needed for pan-drag; you
 can push `true/false` to `signals["enabled"]` to turn it on and off,
 respectively. Your application is responsible for making sure that
 `signals` does not get garbage-collected (which would turn off
@@ -558,7 +558,7 @@ pandrag_button(btn) = btn.button == 1 && (btn.modifiers & 0x0f) == 0
 pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
 
 """
-    signals = init_zoom_scroll(canvas::GtkReactive.Canvas,
+    signals = init_zoom_scroll(canvas::GtkObservables.Canvas,
                                zr::Signal{ZoomRegion},
                                filter::Function = evt->evt.modifiers == CONTROL,
                                focus::Symbol = :pointer,
@@ -566,7 +566,7 @@ pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
                                flip = false)
 
 Initialize zooming-by-mouse-scroll for `canvas` and update
-`zr`. `signals` is a dictionary holding the Reactive.jl signals needed
+`zr`. `signals` is a dictionary holding the Observables.jl signals needed
 for scroll-zooming; you can push `true/false` to `signals["enabled"]`
 to turn scroll-zooming on and off, respectively. Your application is
 responsible for making sure that `signals` does not get

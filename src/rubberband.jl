@@ -1,12 +1,12 @@
 """
-    signals = init_zoom_rubberband(canvas::GtkReactive.Canvas,
+    signals = init_zoom_rubberband(canvas::GtkObservables.Canvas,
                                    zr::Signal{ZoomRegion},
                                    initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == CONTROL),
                                    reset = btn->(btn.button == 1 && btn.clicktype == DOUBLE_BUTTON_PRESS && btn.modifiers == CONTROL),
                                    minpixels = 2)
 
 Initialize rubber-band selection that updates `zr`. `signals` is a
-dictionary holding the Reactive.jl signals needed for rubber-banding;
+dictionary holding the Observables.jl signals needed for rubber-banding;
 you can push `true/false` to `signals["enabled"]` to turn rubber
 banding on and off, respectively. Your application is responsible for
 making sure that `signals` does not get garbage-collected (which would
@@ -44,7 +44,7 @@ function init_zoom_rubberband(canvas::Canvas{U},
             rb.pos1 = rb.pos2 = btn.position
         elseif reset(btn)
             push!(active, false)  # double-clicks need to cancel the previous single-click
-            push!(zr, GtkReactive.reset(value(zr)))
+            push!(zr, GtkObservables.reset(value(zr)))
         end
         nothing
     end
@@ -127,7 +127,7 @@ function rubberband_move(c::Canvas, rb::RubberBand, btn, ctxcopy)
     nothing
 end
 
-function rubberband_stop(c::GtkReactive.Canvas, rb::RubberBand, btn, ctxcopy, callback_done)
+function rubberband_stop(c::GtkObservables.Canvas, rb::RubberBand, btn, ctxcopy, callback_done)
     if !rb.moved
         return nothing
     end

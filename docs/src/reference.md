@@ -23,13 +23,13 @@ label
 
 ```@docs
 canvas
-GtkReactive.Canvas
-GtkReactive.MouseHandler
+GtkObservables.Canvas
+GtkObservables.MouseHandler
 DeviceUnit
 UserUnit
-GtkReactive.XY
-GtkReactive.MouseButton
-GtkReactive.MouseScroll
+GtkObservables.XY
+GtkObservables.MouseButton
+GtkObservables.MouseScroll
 ```
 
 ## Pan/zoom
@@ -62,5 +62,5 @@ init_pan_scroll
 ```@docs
 signal
 frame
-GtkReactive.gc_preserve
+GtkObservables.gc_preserve
 ```

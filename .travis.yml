@@ -35,7 +35,7 @@ script:
 
 after_success:
   # push coverage results to Codecov
-  - julia -e 'using Pkg, GtkReactive; cd(dirname(dirname(pathof(GtkReactive)))); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  - julia -e 'using Pkg, GtkObservables; cd(dirname(dirname(pathof(GtkObservables)))); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
 
 jobs:
   include:

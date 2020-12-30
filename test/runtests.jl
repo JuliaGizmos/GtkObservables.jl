@@ -3,17 +3,17 @@
     using ImageMagick
 end
 
-using GtkReactive, Gtk.ShortNames, IntervalSets, Graphics, Colors,
+using GtkObservables, Gtk.ShortNames, IntervalSets, Graphics, Colors,
       TestImages, FileIO, FixedPointNumbers, RoundingIntegers, Dates, Cairo,
       IdentityRanges
 using Test
 
-rtask = Reactive.runner_task # starting with Reactive 0.7.0, this became a Ref
+rtask = Observables.runner_task # starting with Observables 0.7.0, this became a Ref
 if isa(rtask, Base.RefValue)
     rtask = rtask[]
 end
 if !istaskdone(rtask)
-    Reactive.stop()
+    Observables.stop()
     fetch(rtask)
 end
 
@@ -274,7 +274,7 @@ const counter = Ref(0)
     Gtk.showall(w)
     rr()
     cc = counter[]  # map seems to fire it once, so record the "new" initial value
-    click(b::GtkReactive.Button) = ccall((:gtk_button_clicked,Gtk.libgtk),Cvoid,(Ptr{Gtk.GObject},),b.widget)
+    click(b::GtkObservables.Button) = ccall((:gtk_button_clicked,Gtk.libgtk),Cvoid,(Ptr{Gtk.GObject},),b.widget)
     GC.gc(true)
     click(b)
     rr()
@@ -364,14 +364,14 @@ end
     can_test_width = !(VERSION.minor < 3 && Sys.iswindows())
     can_test_width && @test Graphics.width(c) == 208
     @test Graphics.height(c) == 207
-    @test isa(c, GtkReactive.Canvas{DeviceUnit})
+    @test isa(c, GtkObservables.Canvas{DeviceUnit})
     destroy(win)
     c = canvas(UserUnit, 208, 207)
     win = Window(c)
     Gtk.showall(win)
     reveal(c, true)
     sleep(1.0)
-    @test isa(c, GtkReactive.Canvas{UserUnit})
+    @test isa(c, GtkObservables.Canvas{UserUnit})
     corner_dev = (DeviceUnit(208), DeviceUnit(207))
     can_test_coords = (VERSION < v"1.3" || get(ENV, "CI", nothing) != "true" || !Sys.islinux()) &&
                       can_test_width
@@ -383,10 +383,10 @@ end
             # FIXME: the new JLL-based version fails on Travis.
             # Unfortunately this is difficult to debug because it doesn't replicate
             # locally or on a local headless server. See #91.
-            @test GtkReactive.convertunits(DeviceUnit, c, corner_dev...) == corner_dev
-            @test GtkReactive.convertunits(DeviceUnit, c, corner_usr...) == corner_dev
-            @test GtkReactive.convertunits(UserUnit, c, corner_dev...) == corner_usr
-            @test GtkReactive.convertunits(UserUnit, c, corner_usr...) == corner_usr
+            @test GtkObservables.convertunits(DeviceUnit, c, corner_dev...) == corner_dev
+            @test GtkObservables.convertunits(DeviceUnit, c, corner_usr...) == corner_dev
+            @test GtkObservables.convertunits(UserUnit, c, corner_dev...) == corner_usr
+            @test GtkObservables.convertunits(UserUnit, c, corner_usr...) == corner_usr
         end
     end
 
@@ -422,7 +422,7 @@ end
     rr()
     # FIXME: would prefer that this works on all Julia versions
     VERSION >= v"1.2.0" && @test lastevent[] == "press"
-    signal_emit(widget(c), "button-release-event", Bool, eventbutton(c, GtkReactive.BUTTON_RELEASE, 1))
+    signal_emit(widget(c), "button-release-event", Bool, eventbutton(c, GtkObservables.BUTTON_RELEASE, 1))
     sleep(0.1)
     rr()
     sleep(0.1)
@@ -528,41 +528,41 @@ Base.axes(::Foo) = (Base.OneTo(7), Base.OneTo(9))
     @test @inferred(XY{UserUnit}(3, 5)) == xy
 
     zr = ZoomRegion((1:80, 1:100))  # y, x order
-    zrz = GtkReactive.zoom(zr, 0.5)
+    zrz = GtkObservables.zoom(zr, 0.5)
     @test zrz.currentview.x == 26..75
     @test zrz.currentview.y == 21..60
-    zrp = GtkReactive.pan_x(zrz, 0.2)
+    zrp = GtkObservables.pan_x(zrz, 0.2)
     @test zrp.currentview.x == 36..85
     @test zrp.currentview.y == 21..60
-    zrp = GtkReactive.pan_x(zrz, -0.2)
+    zrp = GtkObservables.pan_x(zrz, -0.2)
     @test zrp.currentview.x == 16..65
     @test zrp.currentview.y == 21..60
-    zrp = GtkReactive.pan_y(zrz, -0.2)
+    zrp = GtkObservables.pan_y(zrz, -0.2)
     @test zrp.currentview.x == 26..75
     @test zrp.currentview.y == 13..52
-    zrp = GtkReactive.pan_y(zrz, 0.2)
+    zrp = GtkObservables.pan_y(zrz, 0.2)
     @test zrp.currentview.x == 26..75
     @test zrp.currentview.y == 29..68
-    zrp = GtkReactive.pan_x(zrz, 1.0)
+    zrp = GtkObservables.pan_x(zrz, 1.0)
     @test zrp.currentview.x == 51..100
     @test zrp.currentview.y == 21..60
-    zrp = GtkReactive.pan_y(zrz, -1.0)
+    zrp = GtkObservables.pan_y(zrz, -1.0)
     @test zrp.currentview.x == 26..75
     @test zrp.currentview.y == 1..40
-    zrz2 = GtkReactive.zoom(zrz, 2.0001)
+    zrz2 = GtkObservables.zoom(zrz, 2.0001)
     @test zrz2 == zr
-    zrz2 = GtkReactive.zoom(zrz, 3)
+    zrz2 = GtkObservables.zoom(zrz, 3)
     @test zrz2 == zr
-    zrz2 = GtkReactive.zoom(zrz, 1.9)
+    zrz2 = GtkObservables.zoom(zrz, 1.9)
     @test zrz2.currentview.x == 4..97
     @test zrz2.currentview.y == 3..78
-    zrz = GtkReactive.zoom(zr, 0.5, GtkReactive.XY{DeviceUnit}(50.5, 40.5))
+    zrz = GtkObservables.zoom(zr, 0.5, GtkObservables.XY{DeviceUnit}(50.5, 40.5))
     @test zrz.currentview.x == 26..75
     @test zrz.currentview.y == 21..60
-    zrz = GtkReactive.zoom(zr, 0.5, GtkReactive.XY{DeviceUnit}(60.5, 30.5))
+    zrz = GtkObservables.zoom(zr, 0.5, GtkObservables.XY{DeviceUnit}(60.5, 30.5))
     @test zrz.currentview.x == 31..80
     @test zrz.currentview.y == 16..55
-    zrr = GtkReactive.reset(zrz)
+    zrr = GtkObservables.reset(zrz)
     @test zrr == zr
 
     zrbb = ZoomRegion(zr.fullview, BoundingBox(5, 15, 35, 75))
@@ -624,7 +624,7 @@ signal_emit(widget(c), "motion-notify-event", Bool,
 sleep(0.1)
 rr()
 signal_emit(widget(c), "button-release-event", Bool,
-            eventbutton(c, GtkReactive.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
+            eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
 sleep(0.1)
 rr()
 sleep(0.1)
@@ -700,7 +700,7 @@ destroy(win)
                        (Gray(N0f8(0.5)), Gray24(0.5)),
                        (RGB(0, 1, 0), RGB24(0, 1, 0)),
                        (RGBA(1, 0, 0.5, 0.8), ARGB32(1, 0, 0.5, 0.8)))
-        surf = GtkReactive.image_surface(fill(val, 3, 5))
+        surf = GtkObservables.image_surface(fill(val, 3, 5))
         @test surf.height == 3 && surf.width == 5
         @test all(x->x == reinterpret(UInt32, cmp), surf.data)
         destroy(surf)
@@ -712,8 +712,8 @@ end
     g[1,1] = textbox("hello")
 end
 
-# Ensure that the examples run (but the Reactive queue is stopped, so
-# they won't work unless one calls `@async Reactive.run()` manually)
+# Ensure that the examples run (but the Observables queue is stopped, so
+# they won't work unless one calls `@async Observables.run()` manually)
 examplepath = joinpath(dirname(dirname(@__FILE__)), "examples")
 include(joinpath(examplepath, "imageviewer.jl"))
 include(joinpath(examplepath, "widgets.jl"))
