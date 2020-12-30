@@ -40,27 +40,16 @@ welcome.
 
 ## Concepts
 
-The central concept of Observables.jl is the `Signal`, a type that allows
+The central concept of Observables.jl is the `Observable`, a type that allows
 updating with new values that then triggers actions that may update
-other `Signal`s or execute functions. Your GUI ends up being
-represented as a "graph" of Signals that collectively propagate the
-state of your GUI. GtkObservables couples `Signal`s to Gtk.jl's
+other `Observable`s or execute functions. Your GUI ends up being
+represented as a "graph" of Observables that collectively propagate the
+state of your GUI. GtkObservables couples `Observable`s to Gtk.jl's
 widgets. In essence, Observables.jl allows ordinary Julia objects to
 become the triggers for callback actions; the primary advantage of
 using Julia objects, rather than Gtk widgets, as the "application
 logic" triggers is that it simplifies reasoning about the GUI and
 seems to reduce the number of times ones needs to consult the
 [Gtk documentation](https://developer.gnome.org/gtk3/stable/gtkobjects.html).
-
-Because these can sometimes be a source of bugs, it's worth
-emphasizing two crucial features of Observables.jl Signals:
-
-- updates to `Signal`s are asynchronous, so values will not propagate
-  until the next time the Observables message-handler runs
-
-- derived signals are subject to garbage-collection; you should either
-  hold a reference to or `preserve` any derived signals (for any
-  signals that are associated with updating an on-screen widget, see
-  also [`GtkObservables.gc_preserve`](@ref)).
 
 Please see the [Observables.jl documentation](http://juliagizmos.github.io/Observables.jl/) for more information.

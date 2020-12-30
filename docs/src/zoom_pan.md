@@ -31,32 +31,33 @@ think in terms of `(x, y)`. Since `x` corresponds to `column` and `y`
 corresponds to `row`, some operations will require that we swap the
 first and second indices.
 
-Zoom and pan interactions all work through a [`ZoomRegion`](@ref) signal; let's
+Zoom and pan interactions all work through a [`ZoomRegion`](@ref) observable; let's
 create one for this image:
 ```jldoctest demozoom
-julia> zr = Signal(ZoomRegion(image))
-8: "input-6" = ZoomRegion{RoundingIntegers.RInt64}(XY(1..768, 1..512), XY(1..768, 1..512)) ZoomRegion{RoundingIntegers.RInt64}
+julia> zr = Observable(ZoomRegion(image))
+Observable{ZoomRegion{RoundingIntegers.RInt64}} with 0 listeners. Value:
+ZoomRegion{RoundingIntegers.RInt64}(XY(1..768, 1..512), XY(1..768, 1..512))
 ```
 
 The key thing to note here is that it has been created for the
 intervals `1..768` (corresponding to the width of the image) and
-`1..512` (the height of the image). Let's now create a `view` of the image as a Signal:
+`1..512` (the height of the image). Let's now create a `view` of the image as a Observable:
 
 ```jldoctest demozoom
-julia> imgsig = map(zr) do r
+julia> imgroi = map(zr) do r
            cv = r.currentview   # extract the currently-selected region
            # Create a SubArray covering just the selected region (see `?view`)
            view(image, UnitRange{Int}(cv.y), UnitRange{Int}(cv.x))
        end;
 ```
 
-`imgsig` is a Signal that holds a "sub-image," one that updates any
+`imgroi` is a Observable that holds a "sub-image," one that updates any
 time `zr` is modified. We then define a `draw` method for the canvas
 that paints this selection to the canvas:
 
 ```jldoctest demozoom
-julia> redraw = draw(c, imgsig, zr) do cnvs, img, r
-           # Copy the pixel data to the canvas. Because `img` is the value of `imgsig`,
+julia> redraw = draw(c, imgroi, zr) do cnvs, img, r
+           # Copy the pixel data to the canvas. Because `img` is the value of `imgroi`,
            # this will only copy the region that was selected by the `view` call above.
            copy!(cnvs, img)
            # Here we set the coordinates of the canvas to correspond
@@ -65,12 +66,14 @@ julia> redraw = draw(c, imgsig, zr) do cnvs, img, r
            # to the same position in the image.
            set_coordinates(cnvs, r)
        end
-10: "map(map(input-6), input-6)" = nothing Nothing
+2-element Vector{Observables.ObserverFunction}:
+ (::Observables.ObserverFunction) (generic function with 0 methods)
+ (::Observables.ObserverFunction) (generic function with 0 methods)
 ```
 
 We won't need to do anything further with `redraw`, but as a reminder:
 by assigning it to a variable we ensure it won't be garbage-collected
-(if that happened, the canvas would stop updating when `imgsig` and/or
+(if that happened, the canvas would stop updating when `imgroi` and/or
 `zr` update).
 
 Now, let's see our image:
@@ -82,7 +85,8 @@ julia> Gtk.showall(win);
 
 We could `push!` values to `zr` and see the image update:
 ```jldoctest demozoom
-julia> push!(zr, (100:300, axes(image, 2)))
+julia> zr[] = (100:300, axes(image, 2))
+(100:300, Base.OneTo(768))
 ```
 
 ![image2](assets/image2.png)
@@ -92,20 +96,20 @@ zooming (with [`init_zoom_rubberband`](@ref)) and panning (with [`init_pan_drag`
 
 ```jldoctest demozoom
 julia> rb = init_zoom_rubberband(c, zr)
-Dict{String,Signal} with 5 entries:
-  "drag"    => 16: "map(filterwhen(input-8, input-4))" = nothing Nothing
-  "init"    => 14: "map(filterwhen(input-7, input-2))" = nothing Nothing
-  "active"  => 12: "input-8" = false Bool
-  "finish"  => 18: "map(filterwhen(input-8, input-3))" = nothing Nothing
-  "enabled" => 11: "input-7" = true Bool
+Dict{String, Any} with 5 entries:
+  "drag"    => ObserverFunction(#179, Observable{MouseButton{UserUnit}} with 1 …
+  "init"    => ObserverFunction(#178, Observable{MouseButton{UserUnit}} with 1 …
+  "active"  => Observable{Bool} with 0 listeners. Value:…
+  "finish"  => ObserverFunction(#180, Observable{MouseButton{UserUnit}} with 1 …
+  "enabled" => Observable{Bool} with 0 listeners. Value:…
 
 julia> pandrag = init_pan_drag(c, zr)
-Dict{String,Signal} with 5 entries:
-  "drag"    => 24: "map(filterwhen(input-10, input-4))" = nothing Nothing
-  "init"    => 22: "map(filterwhen(input-9, input-2))" = nothing Nothing
-  "active"  => 20: "input-10" = false Bool
-  "finish"  => 26: "map(filterwhen(input-10, input-3))" = nothing Nothing
-  "enabled" => 19: "input-9" = true Bool
+Dict{String, Any} with 5 entries:
+  "drag"    => ObserverFunction(#169, Observable{MouseButton{UserUnit}} with 2 …
+  "init"    => ObserverFunction(#168, Observable{MouseButton{UserUnit}} with 2 …
+  "active"  => Observable{Bool} with 0 listeners. Value:…
+  "finish"  => ObserverFunction(#170, Observable{MouseButton{UserUnit}} with 2 …
+  "enabled" => Observable{Bool} with 0 listeners. Value:…
 ```
 
 Now hold down your `Ctrl` key on your keyboard, click on the image,
@@ -118,7 +122,7 @@ keyword arguments to `init_zoom_rubberband` and `init_pan_drag`.
 
 The returned dictionaries have a number of signals necessary for
 internal operations. Perhaps the only important user-level element is
-`enabled`; if you `push!(rb["enabled"], false)` then you can
+`enabled`; if you `rb["enabled"][] = false` then you can
 (temporarily) turn off rubber-band initiation.
 
 If you have a wheel mouse, you can activate additional interactions

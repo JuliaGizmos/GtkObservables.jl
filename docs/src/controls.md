@@ -5,19 +5,21 @@ Let's create a `slider` object:
 julia> using Gtk.ShortNames, GtkObservables
 
 julia> sl = slider(1:11)
-Gtk.GtkScaleLeaf with 1: "input" = 6 Int64
+Gtk.GtkScaleLeaf with Observable{Int64} with 1 listeners. Value:
+6
 
 julia> typeof(sl)
 GtkObservables.Slider{Int64}
 ```
 
-A `GtkObservables.Slider` holds two important objects: a `Signal`
+A `GtkObservables.Slider` holds two important objects: an `Observable`
 (encoding the "state" of the widget) and a `GtkWidget` (which controls
 the on-screen display). We can extract both of these components:
 
 ```jldoctest demo1
-julia> signal(sl)
-1: "input" = 6 Int64
+julia> observable(sl)
+Observable{Int64} with 1 listeners. Value:
+6
 
 julia> typeof(widget(sl))
 Gtk.GtkScaleLeaf
@@ -48,34 +50,34 @@ that we used to create `sl`. Now drag the slider all the way to the
 right, and then see what happened to `sl`:
 
 ```@meta
-push!(sl, 11)    # Updates the value of a Signal. See the Observables.jl docs.
-Observables.run_till_now() # remember, Observables is asynchronous! This forces the push! to run now.
-sleep(1)
-Observables.run_till_now()
+sl[] =  11    # Updates the value of a Observable. See the Observables.jl docs.
 ```
 
 ```jldoctest demo1
 julia> sl
-Gtk.GtkScaleLeaf with 1: "input" = 6 Int64
+Gtk.GtkScaleLeaf with Observable{Int64} with 1 listeners. Value:
+6
 ```
 
-You can see that dragging the slider caused the value of the signal to
+You can see that dragging the slider caused the value of the observable to
 update. Let's do the converse, and set the value of the slider
 programmatically:
 
 ```jldoctest demo1
-julia> push!(sl, 1)  # shorthand for push!(signal(sl), 1)
+julia> sl[] = 1  # shorthand for observable(sl)[] = 1
+1
 ```
 
 Now if you check the window, you'll see that the slider is at 1.
 
 Realistic GUIs may have many different widgets. Let's add a second way
-to adjust the value of that signal, by allowing the user to type a
+to adjust the value of that observable, by allowing the user to type a
 value into a textbox:
 
 ```jldoctest demo1
-julia> tb = textbox(Int; signal=signal(sl))
-Gtk.GtkEntryLeaf with 1: "input" = 1 Int64
+julia> tb = textbox(Int; observable=observable(sl))
+Gtk.GtkEntryLeaf with Observable{Int64} with 2 listeners. Value:
+1
 
 julia> push!(bx, tb);
 
@@ -84,19 +86,19 @@ julia> Gtk.showall(win);
 
 ![slider2](assets/slider2.png)
 
-Here we created the textbox in a way that shared the signal of `sl`
+Here we created the textbox in a way that shared the observable of `sl`
 with the textbox; consequently, the textbox updates when you move the
 slider, and the slider moves when you enter a new value into the
-textbox. `push!`ing a value to `signal(sl)` updates both.
+textbox. Setting the value of `observable(sl)` updates both.
 
-Another example of connecting a widget with a signal is using a `button`
-to allow updates to propagate to a second `Signal`:
-```
+Another example of connecting a widget with a observable is using a `button`
+to allow updates to propagate to a second `Observable`:
+```julia
 a = button("a")
-x = Signal(1)
+x = Observable(1)
 y_temp = map(sin, x)    # see the Observables.jl documentation for info about using `map`
-y = map(_ -> value(y_temp), a)
+y = map(_ -> y_temp[], a)
 ```
-Subsequent `push!`es into `x` will update `y_temp`, but not `y`. Only
+Setting `x` will update `y_temp`, but not `y`. Only
 after the user presses on the `a` button does `y` get updated with the
 last value of `y_temp`.

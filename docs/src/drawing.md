@@ -36,21 +36,21 @@ Signals, so that our Canvas will be notified when there is new
 material to draw:
 
 ```julia
-const lines = Signal([])   # the list of lines that we'll draw
-const newline = Signal([]) # the in-progress line (will be added to list above)
+const lines = Observable([])   # the list of lines that we'll draw
+const newline = Observable([]) # the in-progress line (will be added to list above)
 ```
 
 Now, let's make our application respond to mouse-clicks. An important
 detail about a `GtkObservables.Canvas` object is that it contains a
 [`MouseHandler`](@ref), accessible with `c.mouse`; this object
-contains `Observables.Signal` objects for mouse button press/release
+contains `Observables.Observable` objects for mouse button press/release
 events, mouse movements, and scrolling:
 
 ```julia
-const drawing = Signal(false)  # this will become true if we're actively dragging
+const drawing = Observable(false)  # this will become true if we're actively dragging
 
-# c.mouse.buttonpress is a `Observables.Signal` that updates whenever the
-# user clicks the mouse inside the canvas. The value of this signal is
+# c.mouse.buttonpress is a `Observables.Observable` that updates whenever the
+# user clicks the mouse inside the canvas. The value of this observable is
 # a MouseButton which contains position and other information.
 
 # We're going to define a callback function that runs whenever the
@@ -59,50 +59,52 @@ const drawing = Signal(false)  # this will become true if we're actively draggin
 #     map(println, c.mouse.buttonpress)
 # However, here our function is longer than `println`, so
 # we're going to use Julia's do-block syntax to define the function:
-sigstart = map(c.mouse.buttonpress) do btn
+sigstart = on(c.mouse.buttonpress) do btn
     # This is the beginning of the function body, operating on the argument `btn`
     if btn.button == 1 && btn.modifiers == 0 # is it the left button, and no shift/ctrl/alt keys pressed?
-        push!(drawing, true)   # activate dragging
-        push!(newline, [btn.position])  # initialize the line with the current position
+        drawing[] = true   # activate dragging
+        newline[] = [btn.position]  # initialize the line with the current position
     end
 end
 ```
 
-`sigstart` is also a signal; we won't do anything with it, but we
-assigned it to a variable to prevent it from being
-garbage-collected. (We could use `GtkObservables.gc_preserve(win,
-sigstart)` if we wanted to keep it alive for at least as long as `win`
-is active.)
+We assigned the output of `on` to a variable to prevent it from being
+garbage-collected.
+(We could use `GtkObservables.gc_preserve(win, sigstart)` if we wanted
+to keep it alive for at least as long as `win` is active.)
 
 Once the user clicks the button, `drawing` holds value `true`; from
 that point forward, any movement of the mouse extends the line by an
 additional vertex:
 
 ```julia
-const dummybutton = MouseButton{UserUnit}()
-# See the Observables.jl documentation for `filterwhen`
-sigextend = map(filterwhen(drawing, dummybutton, c.mouse.motion)) do btn
-    # while dragging, extend `newline` with the most recent point
-    push!(newline, push!(value(newline), btn.position))
+sigextend = on(c.mouse.motion) do btn
+    if drawing[]      # pay attention to motion only when we're dragging
+        # extend `newline` with the most recent point
+        push!(newline[], btn.position)
+        # notify any observers -- alternatively we could reassign to newline[]
+        Observables.notify!(newline)
+    end
 end
 ```
 
-Notice that we made this conditional on `drawing` by using
-`filterwhen`; `dummybutton` is just a default value of the same type
-as `c.mouse.motion` to provide for `filterwhen`.
+Notice that we made this conditional on `drawing`.
 
 Finally, when the user releases the mouse button, we stop drawing, store
 `newline` in `lines`, and prepare for the next line by starting with
 an empty `newline`:
 
 ```julia
-sigend = map(c.mouse.buttonrelease) do btn
+sigend = on(c.mouse.buttonrelease) do btn
     if btn.button == 1
-        push!(drawing, false)  # deactivate dragging
+        drawing[] = false  # deactivate dragging
         # append our new line to the overall list
-        push!(lines, push!(value(lines), value(newline)))
+        push!(lines[], newline[])
         # For the next click, make sure `newline` starts out empty
-        push!(newline, [])
+        # We do this in a way that prevents triggering anything (yet).
+        newline.value = []
+        # Now trigger
+        Observables.notify!(lines)
     end
 end
 ```

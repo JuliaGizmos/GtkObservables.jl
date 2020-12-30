@@ -38,7 +38,7 @@ GtkObservables.MouseScroll
 ZoomRegion
 ```
 
-Note that if you create a `zrsig::Signal{ZoomRegion}`, then
+Note that if you create a `zrsig::Observable{ZoomRegion}`, then
 ```julia
 push!(zrsig, XY(1..3, 1..5))
 push!(zrsig, (1..5, 1..3))
@@ -60,7 +60,7 @@ init_pan_scroll
 
 ## API
 ```@docs
-signal
+observable
 frame
 GtkObservables.gc_preserve
 ```
