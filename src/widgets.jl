@@ -48,7 +48,7 @@ function init_observable2widget(getter::Function,
                                 setter!::Function,
                                 widget::GtkWidget,
                                 id, observable)
-    on(observable) do val
+    on(observable; weak=true) do val
         if signal_handler_is_connected(widget, id)
             signal_handler_block(widget, id)  # prevent "recursive firing" of the handler
             curval = getter(widget)
@@ -70,10 +70,8 @@ defaultsetter!(widget,val) = Gtk.G_.value(widget, val)
 Create a `destroy` callback for `widget` that terminates updating dependent signals.
 """
 function ondestroy(widget::GtkWidget, preserved::AbstractVector)
-    signal_connect(widget, :destroy) do widget
-        map(close, preserved)
+    signal_connect(widget, "destroy") do widget
         empty!(preserved)
-        # TODO? close observable
     end
     nothing
 end
@@ -84,7 +82,7 @@ struct Slider{T<:Number} <: InputWidget{T}
     observable::Observable{T}
     widget::GtkScaleLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function Slider{T}(observable::Observable{T}, widget, id, preserved) where T
         obj = new{T}(observable, widget, id, preserved)
@@ -136,7 +134,7 @@ function slider(range::AbstractRange{T};
     Gtk.G_.value(widget, value)
 
     ## widget -> observable
-    id = signal_connect(widget, :value_changed) do w
+    id = signal_connect(widget, "value_changed") do w
         observable[] = defaultgetter(w)
     end
 
@@ -170,7 +168,7 @@ struct Checkbox <: InputWidget{Bool}
     observable::Observable{Bool}
     widget::GtkCheckButtonLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function Checkbox(observable::Observable{Bool}, widget, id, preserved)
         obj = new(observable, widget, id, preserved)
@@ -202,13 +200,13 @@ function checkbox(value::Bool; widget=nothing, observable=nothing, label="", own
     end
     Gtk.G_.active(widget, value)
 
-    id = signal_connect(widget, :clicked) do w
+    id = signal_connect(widget, "clicked") do w
         observable[] = Gtk.G_.active(w)
     end
     preserved = []
     push!(preserved, init_observable2widget(w->Gtk.G_.active(w),
-                                        (w,val)->Gtk.G_.active(w, val),
-                                        widget, id, observable))
+                                            (w,val)->Gtk.G_.active(w, val),
+                                            widget, id, observable))
     if own
         ondestroy(widget, preserved)
     end
@@ -224,7 +222,7 @@ struct ToggleButton <: InputWidget{Bool}
     observable::Observable{Bool}
     widget::GtkToggleButtonLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function ToggleButton(observable::Observable{Bool}, widget, id, preserved)
         obj = new(observable, widget, id, preserved)
@@ -256,7 +254,7 @@ function togglebutton(value::Bool; widget=nothing, observable=nothing, label="",
     end
     Gtk.G_.active(widget, value)
 
-    id = signal_connect(widget, :clicked) do w
+    id = signal_connect(widget, "clicked") do w
         setindex!(observable, Gtk.G_.active(w))
     end
     preserved = []
@@ -309,11 +307,11 @@ function button(;
     if own === nothing
         own = observable != obsin
     end
-    if widget == nothing
+    if widget === nothing
         widget = GtkButton(label)
     end
 
-    id = signal_connect(widget, :clicked) do w
+    id = signal_connect(widget, "clicked") do w
         setindex!(observable, nothing)
     end
 
@@ -361,7 +359,7 @@ function textbox(::Type{T};
                  observable=nothing,
                  syncsig=true,
                  own=nothing,
-                 gtksignal=:activate) where T
+                 gtksignal::String="activate") where T
     if T <: AbstractString && range !== nothing
         throw(ArgumentError("You cannot set a range on a string textbox"))
     end
@@ -373,7 +371,7 @@ function textbox(::Type{T};
     if widget === nothing
         widget = GtkEntry()
     end
-    set_gtk_property!(widget, :text, value)
+    set_gtk_property!(widget, "text", value)
 
     id = signal_connect(widget, gtksignal) do w
         setindex!(observable, entrygetter(w, observable, range))
@@ -399,14 +397,14 @@ function textbox(value::T;
                  observable=nothing,
                  syncsig=true,
                  own=nothing,
-                 gtksignal=:activate) where T
+                 gtksignal="activate") where T
     textbox(T; widget=widget, value=value, range=range, observable=observable, syncsig=syncsig, own=own, gtksignal=gtksignal)
 end
 
-entrygetter(w, observable::Observable{T}, ::Nothing) where {T<:AbstractString} =
-    get_gtk_property(w, :text, String)
+entrygetter(w, ::Observable{<:AbstractString}, ::Nothing) =
+    get_gtk_property(w, "text", String)
 function entrygetter(w, observable::Observable{T}, range) where T
-    val = tryparse(T, get_gtk_property(w, :text, String))
+    val = tryparse(T, get_gtk_property(w, "text", String))
     if val === nothing
         nval = observable[]
         # Invalid entry, restore the old value
@@ -426,16 +424,16 @@ function nearest(val, r::AbstractRange)
     r[clamp(i, first(ax), last(ax))]
 end
 
-entrysetter!(w, val) = set_gtk_property!(w, :text, string(val))
+entrysetter!(w, val) = set_gtk_property!(w, "text", string(val))
 
 
 ######################### Textarea ###########################
 
 struct Textarea <: InputWidget{String}
     observable::Observable{String}
-    widget::GtkTextView
+    widget::GtkTextViewLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function Textarea(observable::Observable{String}, widget, id, preserved)
         obj = new(observable, widget, id, preserved)
@@ -464,20 +462,21 @@ function textarea(value::String="";
     if widget === nothing
         widget = GtkTextView()
     end
-    buf = Gtk.G_.buffer(widget)
-    set_gtk_property!(buf, :text, value)
+    buf = widget[:buffer, GtkTextBuffer]
+    buf[String] = value
+    sleep(0.01)   # without this, we more frequently get segfaults...not sure why
 
-    id = signal_connect(buf, :changed) do w
-        setindex!(observable, get_gtk_property(w, :text, String))
+    id = signal_connect(buf, "changed") do w
+        setindex!(observable, w[String])
     end
 
     preserved = []
     if syncsig
-        # GtkTextBuffer is not a GtkWdiget, so we have to do this manually
-        push!(preserved, on(observable) do val
+        # GtkTextBuffer is not a GtkWidget, so we have to do this manually
+        push!(preserved, on(observable; weak=true) do val
                   signal_handler_block(buf, id)
-                  curval = get_gtk_property(buf, :text, String)
-                  curval != val && set_gtk_property!(buf, :text, val)
+                  curval = get_gtk_property(buf, "text", String)
+                  curval != val && set_gtk_property!(buf, "text", val)
                   signal_handler_unblock(buf, id)
                   nothing
               end)
@@ -494,7 +493,7 @@ struct Dropdown <: InputWidget{String}
     mappedsignal::Observable{Any}
     widget::GtkComboBoxTextLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function Dropdown(observable::Observable{String}, mappedsignal::Observable, widget, id, preserved)
         obj = new(observable, mappedsignal, widget, id, preserved)
@@ -559,7 +558,7 @@ function dropdown(; choices=nothing,
     str2int = Dict{String,Int}()
     int2str = Dict{Int,String}()
     getactive(w) = int2str[get_gtk_property(w, :active, Int)]
-    setactive!(w, val) = set_gtk_property!(widget, :active, str2int[val])
+    setactive!(w, val) = set_gtk_property!(w, "active", str2int[val])
     k = -1
     for c in choices
         str = juststring(c)
@@ -572,7 +571,7 @@ function dropdown(; choices=nothing,
     end
     setactive!(widget, value)
 
-    id = signal_connect(widget, :changed) do w
+    id = signal_connect(widget, "changed") do w
         setindex!(observable, getactive(w))
     end
 
@@ -590,6 +589,10 @@ function dropdown(; choices=nothing,
     end
 
     Dropdown(observable, mappedsignal, widget, id, preserved)
+end
+
+function Base.precompile(w::Dropdown)
+    return invoke(precompile, Tuple{Widget}, w) & precompile(w.mappedsignal)
 end
 
 function dropdown(choices; kwargs...)
@@ -673,7 +676,7 @@ pairaction(p::Pair{String,F}) where {F<:Function} = p.second
 
 struct Label <: Widget
     observable::Observable{String}
-    widget::GtkLabel
+    widget::GtkLabelLeaf
     preserved::Vector{Any}
 
     function Label(observable::Observable{String}, widget, preserved)
@@ -704,13 +707,15 @@ function label(value;
     if widget === nothing
         widget = GtkLabel(value)
     else
-        set_gtk_property!(widget, :label, value)
+        set_gtk_property!(widget, "label", value)
     end
     preserved = []
     if syncsig
-        push!(preserved, on(observable) do val
-            set_gtk_property!(widget, :label, val)
-        end)
+        let widget=widget
+            push!(preserved, on(observable; weak=true) do val
+                set_gtk_property!(widget, "label", val)
+            end)
+        end
     end
     if own
         ondestroy(widget, preserved)
@@ -792,7 +797,7 @@ struct SpinButton{T<:Number} <: InputWidget{T}
     observable::Observable{T}
     widget::GtkSpinButtonLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function SpinButton{T}(observable::Observable{T}, widget, id, preserved) where T
         obj = new{T}(observable, widget, id, preserved)
@@ -844,7 +849,7 @@ function spinbutton(range::AbstractRange{T};
     Gtk.G_.value(widget, value)
 
     ## widget -> observable
-    id = signal_connect(widget, :value_changed) do w
+    id = signal_connect(widget, "value_changed") do w
         setindex!(observable, defaultgetter(w))
     end
 
@@ -878,7 +883,7 @@ struct CyclicSpinButton{T<:Number} <: InputWidget{T}
     observable::Observable{T}
     widget::GtkSpinButtonLeaf
     id::Culong
-    preserved::Vector
+    preserved::Vector{Any}
 
     function CyclicSpinButton{T}(observable::Observable{T}, widget, id, preserved) where T
         obj = new{T}(observable, widget, id, preserved)
@@ -906,12 +911,12 @@ than the minimum of the range `carry_up` is updated with `false`. Optional argum
   - the `orientation` of the cyclicspinbutton.
 """
 function cyclicspinbutton(range::AbstractRange{T}, carry_up::Observable{Bool};
-                       widget=nothing,
-                       value=nothing,
-                       observable=nothing,
-                       orientation="horizontal",
-                       syncsig=true,
-                       own=nothing) where T
+                          widget=nothing,
+                          value=nothing,
+                          observable=nothing,
+                          orientation="horizontal",
+                          syncsig=true,
+                          own=nothing) where T
     obsin = observable
     observable, value = init_wobsval(T, observable, value; default=range.start)
     if own === nothing
@@ -933,7 +938,7 @@ function cyclicspinbutton(range::AbstractRange{T}, carry_up::Observable{Bool};
     Gtk.G_.value(widget, value)
 
     ## widget -> observable
-    id = signal_connect(widget, :value_changed) do w
+    id = signal_connect(widget, "value_changed") do w
         setindex!(observable, defaultgetter(w))
     end
 
@@ -946,13 +951,13 @@ function cyclicspinbutton(range::AbstractRange{T}, carry_up::Observable{Bool};
         ondestroy(widget, preserved)
     end
 
-    push!(preserved, on(observable) do val
+    push!(preserved, on(observable; weak=true) do val
         if val > maximum(range)
             observable.val = minimum(range)
             setindex!(carry_up, true)
         end
     end)
-    push!(preserved, on(observable) do val
+    push!(preserved, on(observable; weak=true) do val
         if val < minimum(range)
             observable.val = maximum(range)
             setindex!(carry_up, false)
@@ -1010,10 +1015,10 @@ julia> for i = 1:n
 ```
 """
 function progressbar(interval::AbstractInterval{T};
-               widget=nothing,
-               observable=nothing,
-               syncsig=true,
-               own=nothing) where T<:Number
+                     widget=nothing,
+                     observable=nothing,
+                     syncsig=true,
+                     own=nothing) where T<:Number
     value = minimum(interval)
     obsin = observable
     observable, value = init_wobsval(T, observable, value)
@@ -1023,12 +1028,12 @@ function progressbar(interval::AbstractInterval{T};
     if widget === nothing
         widget = GtkProgressBar()
     else
-        set_gtk_property!(widget, :fraction, interval2fraction(interval, value))
+        set_gtk_property!(widget, "fraction", interval2fraction(interval, value))
     end
     preserved = []
     if syncsig
-        push!(preserved, on(observable) do val
-            set_gtk_property!(widget, :fraction, interval2fraction(interval, val))
+        push!(preserved, on(observable; weak=true) do val
+            set_gtk_property!(widget, "fraction", interval2fraction(interval, val))
         end)
     end
     if own

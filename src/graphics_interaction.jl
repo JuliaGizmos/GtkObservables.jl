@@ -231,7 +231,7 @@ struct Canvas{U}
     mouse::MouseHandler{U}
     preserved::Vector{Any}
 
-    function Canvas{U}(w::Integer=-1, h::Integer=-1; own::Bool=true) where U
+    function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true) where U
         gtkcanvas = GtkCanvas(w, h)
         # Delete the Gtk handlers
         for id in gtkcanvas.mouse.ids
@@ -240,13 +240,14 @@ struct Canvas{U}
         empty!(gtkcanvas.mouse.ids)
         # Initialize our own handlers
         mouse = MouseHandler{U}(gtkcanvas)
-        set_gtk_property!(gtkcanvas, :is_focus, true)
+        set_gtk_property!(gtkcanvas, "is_focus", true)
         preserved = []
         canvas = new{U}(gtkcanvas, mouse, preserved)
         gc_preserve(gtkcanvas, canvas)
         canvas
     end
 end
+Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own)
 
 """
     canvas(U=DeviceUnit, w=-1, h=-1) - c::GtkObservables.Canvas
@@ -284,7 +285,7 @@ using `do`-block notation:
 This would paint an image-Observable `imgobs` onto the canvas and then
 draw a red circle centered on `xsig`, `ysig`.
 """
-function Gtk.draw(drawfun::Function, c::Canvas, signals::Observable...)
+function Gtk.draw(drawfun::F, c::Canvas, signals::Observable...) where F
     @guarded draw(c.widget) do widget
         # This used to have a `yield` in it to allow the Gtk event queue to run,
         # but that caused
@@ -294,6 +295,16 @@ function Gtk.draw(drawfun::Function, c::Canvas, signals::Observable...)
         drawfun(widget, map(getindex, signals)...)
     end
     drawfunc = onany(signals...) do values...
+        draw(c.widget)
+    end
+    push!(c.preserved, drawfunc)
+    drawfunc
+end
+function Gtk.draw(drawfun::F, c::Canvas, signal::Observable) where F
+    @guarded draw(c.widget) do widget
+        drawfun(widget, signal[])
+    end
+    drawfunc = on(signal) do _
         draw(c.widget)
     end
     push!(c.preserved, drawfunc)
@@ -484,12 +495,12 @@ You can flip the direction of either pan operation with `xpanflip` and
 """
 function init_pan_scroll(canvas::Canvas{U},
                          zr::Observable{ZoomRegion{T}},
-                         filter_x::Function = evt->(evt.modifiers & 0x0f) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
-                         filter_y::Function = evt->(evt.modifiers & 0x0f) == 0 && (evt.direction == UP || evt.direction == DOWN),
+                         @nospecialize(filter_x::Function) = evt->(evt.modifiers & 0x0f) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
+                         @nospecialize(filter_y::Function) = evt->(evt.modifiers & 0x0f) == 0 && (evt.direction == UP || evt.direction == DOWN),
                          xpanflip = false,
                          ypanflip  = false) where {U,T}
     enabled = Observable(true)
-    pan = on(canvas.mouse.scroll) do event::MouseScroll{U}
+    pan = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
         if enabled[]
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
@@ -523,11 +534,11 @@ click-drag panning has been met (by default, clicking mouse button
 """
 function init_pan_drag(canvas::Canvas{U},
                        zr::Observable{ZoomRegion{T}},
-                       initiate::Function = pandrag_init_default) where {U,T}
+                       @nospecialize(initiate::Function) = pandrag_init_default) where {U,T}
     enabled = Observable(true)
     active = Observable(false)
     pos1ref, zr1ref, mtrxref = Ref{XY{DeviceUnit}}(), Ref{XY{ClosedInterval{T}}}(), Ref{Matrix{Float64}}()   # julia#15276
-    init = on(canvas.mouse.buttonpress) do btn::MouseButton{U}
+    init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
         if initiate(btn)
             active[] = true
             # Because the user coordinates will change during panning,
@@ -539,12 +550,12 @@ function init_pan_drag(canvas::Canvas{U},
         end
         return nothing
     end
-    drag = on(canvas.mouse.motion) do btn::MouseButton{U}
+    drag = on(canvas.mouse.motion; weak=true) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
             pos1, zr1, mtrx = pos1ref[], zr1ref[], mtrxref[]
             xd, yd = convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)
-            dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1]
+            dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1.0]
             fv = zr[].fullview
             cv = XY(interior(minimum(zr1.x)-dx..maximum(zr1.x)-dx, fv.x),
                     interior(minimum(zr1.y)-dy..maximum(zr1.y)-dy, fv.y))
@@ -553,7 +564,7 @@ function init_pan_drag(canvas::Canvas{U},
             end
         end
     end
-    finish = on(canvas.mouse.buttonrelease) do btn::MouseButton{U}
+    finish = on(canvas.mouse.buttonrelease; weak=true) do btn::MouseButton{U}
         btn.button == 0 && return nothing
         active[] = false
         return nothing
@@ -593,13 +604,13 @@ zooming with `flip`.
 """
 function init_zoom_scroll(canvas::Canvas{U},
                           zr::Observable{ZoomRegion{T}},
-                          filter::Function = evt->(evt.modifiers & 0x0f) == CONTROL,
+                          @nospecialize(filter::Function) = evt->(evt.modifiers & 0x0f) == CONTROL,
                           focus::Symbol = :pointer,
                           factor = 2.0,
                           flip = false) where {U,T}
     focus == :pointer || focus == :center || error("focus must be :pointer or :center")
     enabled = Observable(true)
-    zm = on(canvas.mouse.scroll) do event::MouseScroll{U}
+    zm = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
         if enabled[] && filter(event)
             # println("zoom scroll: ", event)
             s = factor
