@@ -86,14 +86,14 @@ include("tools.jl")
     @test meld[] == "4X4"
     destroy(win)
 
-    ## textarea (aka TextView)
-    v = textarea("Type something longer")
-    win = Window(v)
-    Gtk.showall(win)
-    @test v[] == "Type something longer"
-    v[] = "ok"
-    @test get_gtk_property(Gtk.G_.buffer(v.widget), :text, String) == "ok"
-    destroy(win)
+    # ## textarea (aka TextView)
+    # v = textarea("Type something longer")
+    # win = Window(v)
+    # Gtk.showall(win)
+    # @test v[] == "Type something longer"
+    # v[] = "ok"
+    # @test get_gtk_property(Gtk.G_.buffer(v.widget), :text, String) == "ok"
+    # destroy(win)
 
     ## slider
     s = slider(1:15)
