@@ -489,7 +489,7 @@ function init_pan_scroll(canvas::Canvas{U},
                          xpanflip = false,
                          ypanflip  = false) where {U,T}
     enabled = Observable(true)
-    pan = on(canvas.mouse.scroll) do event
+    pan = on(canvas.mouse.scroll) do event::MouseScroll{U}
         if enabled[]
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
@@ -502,7 +502,7 @@ function init_pan_scroll(canvas::Canvas{U},
         end
         return nothing
     end
-    Dict("enabled"=>enabled, "pan"=>pan)
+    Dict{String,Any}("enabled"=>enabled, "pan"=>pan)
 end
 
 """
@@ -526,22 +526,23 @@ function init_pan_drag(canvas::Canvas{U},
                        initiate::Function = pandrag_init_default) where {U,T}
     enabled = Observable(true)
     active = Observable(false)
-    local pos1, zr1, mtrx
-    init = on(canvas.mouse.buttonpress) do btn
+    pos1ref, zr1ref, mtrxref = Ref{XY{DeviceUnit}}(), Ref{XY{ClosedInterval{T}}}(), Ref{Matrix{Float64}}()   # julia#15276
+    init = on(canvas.mouse.buttonpress) do btn::MouseButton{U}
         if initiate(btn)
             active[] = true
             # Because the user coordinates will change during panning,
             # convert to absolute position
-            pos1 = XY(convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)...)
-            zr1 = zr[].currentview
+            pos1ref[] = XY(convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)...)
+            zr1ref[] = zr[].currentview
             m = Cairo.get_matrix(getgc(canvas))
-            mtrx = inv([m.xx m.xy 0; m.yx m.yy 0; m.x0 m.y0 1])
+            mtrxref[] = inv([m.xx m.xy 0.0; m.yx m.yy 0.0; m.x0 m.y0 1.0])
         end
         return nothing
     end
-    drag = on(canvas.mouse.motion) do btn
+    drag = on(canvas.mouse.motion) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
+            pos1, zr1, mtrx = pos1ref[], zr1ref[], mtrxref[]
             xd, yd = convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)
             dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1]
             fv = zr[].fullview
@@ -552,12 +553,12 @@ function init_pan_drag(canvas::Canvas{U},
             end
         end
     end
-    finish = on(canvas.mouse.buttonrelease) do btn
+    finish = on(canvas.mouse.buttonrelease) do btn::MouseButton{U}
         btn.button == 0 && return nothing
         active[] = false
         return nothing
     end
-    Dict("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
+    Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 pandrag_button(btn) = btn.button == 1 && (btn.modifiers & 0x0f) == 0
 pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
@@ -598,7 +599,7 @@ function init_zoom_scroll(canvas::Canvas{U},
                           flip = false) where {U,T}
     focus == :pointer || focus == :center || error("focus must be :pointer or :center")
     enabled = Observable(true)
-    zm = on(canvas.mouse.scroll) do event
+    zm = on(canvas.mouse.scroll) do event::MouseScroll{U}
         if enabled[] && filter(event)
             # println("zoom scroll: ", event)
             s = factor
@@ -617,7 +618,7 @@ function init_zoom_scroll(canvas::Canvas{U},
             end
         end
     end
-    Dict("enabled"=>enabled, "zoom"=>zm)
+    Dict{String,Any}("enabled"=>enabled, "zoom"=>zm)
 end
 
 scrollpm(direction::Integer) =

@@ -35,12 +35,12 @@ function init_zoom_rubberband(canvas::Canvas{U},
         nothing
     end
     rb = RubberBand(XY{U}(-1,-1), XY{U}(-1,-1), false, minpixels)
-    local ctxcopy
-    init = on(canvas.mouse.buttonpress) do btn
+    ctxcopy = Ref{Cairo.CairoContext}()
+    init = on(canvas.mouse.buttonpress) do btn::MouseButton{U}
         if enabled[]
             if initiate(btn)
                 active[] = true
-                ctxcopy = copy(getgc(canvas))
+                ctxcopy[] = copy(getgc(canvas))
                 rb.pos1 = rb.pos2 = btn.position
             elseif reset(btn)
                 active[] = false  # double-clicks need to cancel the previous single-click
@@ -49,20 +49,20 @@ function init_zoom_rubberband(canvas::Canvas{U},
         end
         nothing
     end
-    drag = on(canvas.mouse.motion) do btn
+    drag = on(canvas.mouse.motion) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
-            rubberband_move(canvas, rb, btn, ctxcopy)
+            rubberband_move(canvas, rb, btn, ctxcopy[])
         end
     end
-    finish = on(canvas.mouse.buttonrelease) do btn
+    finish = on(canvas.mouse.buttonrelease) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
             active[] = false
-            rubberband_stop(canvas, rb, btn, ctxcopy, update_zr)
+            rubberband_stop(canvas, rb, btn, ctxcopy[], update_zr)
         end
     end
-    Dict("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
+    Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 
 zrb_init_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && (btn.modifiers & 0x0f) == CONTROL

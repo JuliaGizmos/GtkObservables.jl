@@ -4,6 +4,7 @@ if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optle
     @eval Base.Experimental.@optlevel 1
 end
 
+using LinearAlgebra   # for `inv`
 using Gtk, Colors, FixedPointNumbers, Reexport
 @reexport using Observables
 using Graphics
@@ -100,7 +101,7 @@ Graphics.width(c::Canvas) = Graphics.width(c.widget)
 Graphics.height(c::Canvas) = height(c.widget)
 
 Graphics.set_coordinates(c::Union{GtkCanvas,Canvas}, device::BoundingBox, user::BoundingBox) =
-    set_coordinates(getgc(c), device, user)
+    set_coordinates(getgc(c)::Cairo.CairoContext, device, user)
 Graphics.set_coordinates(c::Union{GtkCanvas,Canvas}, user::BoundingBox) =
     set_coordinates(c, BoundingBox(0, Graphics.width(c), 0, Graphics.height(c)), user)
 function Graphics.set_coordinates(c::Union{GraphicsContext,Canvas,GtkCanvas}, zr::ZoomRegion)
@@ -146,7 +147,7 @@ function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     end
 end
 
-# include("precompile.jl")
-# VERSION >= v"1.4.2" && _precompile_() # https://github.com/JuliaLang/julia/pull/35378
+include("precompile.jl")
+Base.VERSION >= v"1.4.2" && _precompile_() # https://github.com/JuliaLang/julia/pull/35378
 
 end # module
