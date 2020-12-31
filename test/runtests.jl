@@ -544,71 +544,72 @@ Base.axes(::Foo) = (Base.OneTo(7), Base.OneTo(9))
     @test axes(zr) == (11:20, 8:12)
 end
 
-### Simulate the mouse clicks, etc. to trigger zoom/pan
-# Again, this doesn't seem to work inside a @testset
-win = Window() |> (c = canvas(UserUnit))
-zr = Observable(ZoomRegion((1:11, 1:20)))
-zoomrb = init_zoom_rubberband(c, zr)
-zooms = init_zoom_scroll(c, zr)
-pans = init_pan_scroll(c, zr)
-pand = init_pan_drag(c, zr)
-draw(c) do cnvs
-    set_coordinates(c, zr[])
-    fill!(c, colorant"blue")
+@testset "More zoom/pan" begin
+    ### Simulate the mouse clicks, etc. to trigger zoom/pan
+    win = Window() |> (c = canvas(UserUnit))
+    zr = Observable(ZoomRegion((1:11, 1:20)))
+    zoomrb = init_zoom_rubberband(c, zr)
+    zooms = init_zoom_scroll(c, zr)
+    pans = init_pan_scroll(c, zr)
+    pand = init_pan_drag(c, zr)
+    draw(c) do cnvs
+        set_coordinates(c, zr[])
+        fill!(c, colorant"blue")
+    end
+    Gtk.showall(win)
+    sleep(0.1)
+
+    # Zoom by rubber band
+    signal_emit(widget(c), "button-press-event", Bool,
+                eventbutton(c, BUTTON_PRESS, 1, UserUnit(5), UserUnit(3), CONTROL))
+    signal_emit(widget(c), "motion-notify-event", Bool,
+                eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
+    signal_emit(widget(c), "button-release-event", Bool,
+                eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
+    @test zr[].currentview.x == 5..10
+    @test zr[].currentview.y == 3..4
+    # Ensure that the rubber band damage has been repaired
+    if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
+        fn = tempname()
+        Cairo.write_to_png(getgc(c).surface, fn)
+        imgout = load(fn)
+        rm(fn)
+        @test all(x->x==colorant"blue", imgout)
+    end
+
+    # Pan-drag
+    signal_emit(widget(c), "button-press-event", Bool,
+                eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
+    signal_emit(widget(c), "motion-notify-event", Bool,
+                eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
+    @test zr[].currentview.x == 4..9
+    @test zr[].currentview.y == 4..5
+
+    # Reset
+    signal_emit(widget(c), "button-press-event", Bool,
+                eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
+    @test zr[].currentview.x == 1..20
+    @test zr[].currentview.y == 1..11
+
+    # Zoom-scroll
+    signal_emit(widget(c), "scroll-event", Bool,
+                eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
+    @test zr[].currentview.x == 4..14
+    @test zr[].currentview.y == 2..8
+
+    # Pan-scroll
+    signal_emit(widget(c), "scroll-event", Bool,
+                eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
+    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.y == 2..8
+
+    signal_emit(widget(c), "scroll-event", Bool,
+                eventscroll(c, DOWN, UserUnit(8), UserUnit(4), 0))
+    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.y == 3..9
+
+    destroy(win)
 end
-Gtk.showall(win)
-sleep(0.1)
-
-# Zoom by rubber band
-signal_emit(widget(c), "button-press-event", Bool,
-            eventbutton(c, BUTTON_PRESS, 1, UserUnit(5), UserUnit(3), CONTROL))
-signal_emit(widget(c), "motion-notify-event", Bool,
-            eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
-signal_emit(widget(c), "button-release-event", Bool,
-            eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
-@test zr[].currentview.x == 5..10
-@test zr[].currentview.y == 3..4
-# Ensure that the rubber band damage has been repaired
-if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
-    fn = tempname()
-    Cairo.write_to_png(getgc(c).surface, fn)
-    imgout = load(fn)
-    rm(fn)
-    @test all(x->x==colorant"blue", imgout)
-end
-
-# Pan-drag
-signal_emit(widget(c), "button-press-event", Bool,
-            eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
-signal_emit(widget(c), "motion-notify-event", Bool,
-            eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
-@test zr[].currentview.x == 4..9
-@test zr[].currentview.y == 4..5
-
-# Reset
-signal_emit(widget(c), "button-press-event", Bool,
-            eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
-@test zr[].currentview.x == 1..20
-@test zr[].currentview.y == 1..11
-
-# Zoom-scroll
-signal_emit(widget(c), "scroll-event", Bool,
-            eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
-@test zr[].currentview.x == 4..14
-@test zr[].currentview.y == 2..8
-
-# Pan-scroll
-signal_emit(widget(c), "scroll-event", Bool,
-            eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
-@test zr[].currentview.x == 5..15
-@test zr[].currentview.y == 2..8
-
-signal_emit(widget(c), "scroll-event", Bool,
-            eventscroll(c, DOWN, UserUnit(8), UserUnit(4), 0))
-@test zr[].currentview.x == 5..15
-@test zr[].currentview.y == 3..9
-
-destroy(win)
 
 @testset "Surfaces" begin
     for (val, cmp) in ((0.2, Gray24(0.2)),
