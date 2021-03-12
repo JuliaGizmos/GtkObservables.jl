@@ -15,9 +15,9 @@ include("tools.jl")
     l = label("Hello")
     @test observable(l) == l.observable
     @test observable(observable(l)) == l.observable
-    @test get_gtk_property(l, :label, String) == "Hello"
+    @test get_gtk_property(l, "label", String) == "Hello"
     l[] = "world"
-    @test get_gtk_property(l, :label, String) == "world"
+    @test get_gtk_property(l, "label", String) == "world"
     @test string(l) == string("Gtk.GtkLabelLeaf with ", string(observable(l)))
     # Test other elements of the Observables API
     counter = Ref(0)
@@ -66,16 +66,16 @@ include("tools.jl")
     push!(bx, txt)
     push!(bx, num)
     Gtk.showall(win)
-    @test get_gtk_property(txt, :text, String) == "Type something"
+    @test get_gtk_property(txt, "text", String) == "Type something"
     txt[] = "ok"
-    @test get_gtk_property(txt, :text, String) == "ok"
-    set_gtk_property!(txt, :text, "other direction")
-    signal_emit(widget(txt), :activate, Nothing)
+    @test get_gtk_property(txt, "text", String) == "ok"
+    set_gtk_property!(txt, "text", "other direction")
+    signal_emit(widget(txt), "activate", Nothing)
     @test txt[] == "other direction"
-    @test get_gtk_property(num, :text, String) == "5"
+    @test get_gtk_property(num, "text", String) == "5"
     @test_throws ArgumentError num[] = 11
     num[] = 8
-    @test get_gtk_property(num, :text, String) == "8"
+    @test get_gtk_property(num, "text", String) == "8"
     meld = map(txt, num) do t, n
         join((t, n), 'X')
     end
@@ -86,14 +86,14 @@ include("tools.jl")
     @test meld[] == "4X4"
     destroy(win)
 
-    # ## textarea (aka TextView)
-    # v = textarea("Type something longer")
-    # win = Window(v)
-    # Gtk.showall(win)
-    # @test v[] == "Type something longer"
-    # v[] = "ok"
-    # @test get_gtk_property(Gtk.G_.buffer(v.widget), :text, String) == "ok"
-    # destroy(win)
+    ## textarea (aka TextView)
+    v = textarea("Type something longer")
+    win = Window(v)
+    Gtk.showall(win)
+    @test v[] == "Type something longer"
+    v[] = "ok"
+    @test get_gtk_property(Gtk.G_.buffer(v.widget), "text", String) == "ok"
+    destroy(win)
 
     ## slider
     s = slider(1:15)
@@ -127,7 +127,7 @@ include("tools.jl")
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
     @test dd[] == "Strawberry"
     dd[] = "Chocolate"
-    @test get_gtk_property(dd, :active, Int) == 2
+    @test get_gtk_property(dd, "active", Int) == 2
     destroy(dd.widget)
 
     r = Ref(0)
@@ -358,7 +358,7 @@ end
     c = canvas()
     f = AspectFrame(c, "Some title", 0.5, 0.5, 3.0)
     @test isa(f, Gtk.GtkAspectFrameLeaf)
-    @test get_gtk_property(f, :ratio, Float64) == 3.0
+    @test get_gtk_property(f, "ratio", Float64) == 3.0
     destroy(f)
 end
 
@@ -628,8 +628,6 @@ end
     g[1,1] = textbox("hello")
 end
 
-# Ensure that the examples run (but the Observables queue is stopped, so
-# they won't work unless one calls `@async Observables.run()` manually)
 examplepath = joinpath(dirname(dirname(@__FILE__)), "examples")
 include(joinpath(examplepath, "imageviewer.jl"))
 include(joinpath(examplepath, "widgets.jl"))

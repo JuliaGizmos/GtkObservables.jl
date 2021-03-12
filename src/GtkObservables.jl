@@ -1,7 +1,7 @@
 module GtkObservables
 
-if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@optlevel"))
-    @eval Base.Experimental.@optlevel 1
+if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@compiler_options"))
+    @eval Base.Experimental.@compiler_options optimize=1
 end
 
 using LinearAlgebra   # for `inv`
@@ -65,7 +65,19 @@ Base.getindex(w::Widget) = getindex(observable(w))
 Base.setindex!(w::Widget, val) = setindex!(observable(w), val)
 Observables.on(f, w::Widget; kwargs...) = on(f, observable(w); kwargs...)
 Observables.onany(f, w::Widget, ws::Union{Widget,Observable}...; kwargs...) = onany(f, observable(w)::Observable, map(observable, ws)...; kwargs...)
-Base.map(f, w::Widget, ws::Union{Widget,Observable}...; kwargs...) = map(f, observable(w)::Observable, map(observable, ws)...; kwargs...)
+Base.map(f::F, w::Widget, ws::Union{Widget,Observable}...; kwargs...) where F = map(f, observable(w)::Observable, map(observable, ws)...; kwargs...)
+
+function Base.precompile(w::Widget)
+    tf = true
+    if hasfield(typeof(w), :preserved)
+        for f in w.preserved
+            if isa(f, Observables.ObserverFunction)
+                tf &= precompile(f)
+            end
+        end
+    end
+    return tf
+end
 
 # Define specific widgets
 include("widgets.jl")
@@ -142,7 +154,7 @@ Preserve `obj` until `widget` has been [`destroy`](@ref)ed.
 """
 function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     _ref_dict[obj] = obj
-    signal_connect(widget, :destroy) do w
+    signal_connect(widget, "destroy") do w
         delete!(_ref_dict, obj)
     end
 end

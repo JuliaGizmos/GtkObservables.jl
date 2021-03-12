@@ -21,8 +21,8 @@ selections smaller than some threshold.
 """
 function init_zoom_rubberband(canvas::Canvas{U},
                               zr::Observable{ZoomRegion{T}},
-                              initiate::Function = zrb_init_default,
-                              reset::Function = zrb_reset_default,
+                              @nospecialize(initiate::Function) = zrb_init_default,
+                              @nospecialize(reset::Function) = zrb_reset_default,
                               minpixels::Integer = 2) where {U,T}
     enabled = Observable(true)
     active = Observable(false)
@@ -36,7 +36,7 @@ function init_zoom_rubberband(canvas::Canvas{U},
     end
     rb = RubberBand(XY{U}(-1,-1), XY{U}(-1,-1), false, minpixels)
     ctxcopy = Ref{Cairo.CairoContext}()
-    init = on(canvas.mouse.buttonpress) do btn::MouseButton{U}
+    init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
         if enabled[]
             if initiate(btn)
                 active[] = true
@@ -49,13 +49,13 @@ function init_zoom_rubberband(canvas::Canvas{U},
         end
         nothing
     end
-    drag = on(canvas.mouse.motion) do btn::MouseButton{U}
+    drag = on(canvas.mouse.motion; weak=true) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
             rubberband_move(canvas, rb, btn, ctxcopy[])
         end
     end
-    finish = on(canvas.mouse.buttonrelease) do btn::MouseButton{U}
+    finish = on(canvas.mouse.buttonrelease; weak=true) do btn::MouseButton{U}
         if active[]
             btn.button == 0 && return nothing
             active[] = false

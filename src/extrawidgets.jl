@@ -14,7 +14,7 @@ frame(f::GtkFrame) = f
 struct Player{P} <: Widget
     observable::Observable{Int}
     widget::P
-    preserved::Vector
+    preserved::Vector{Any}
 
     function Player{P}(observable::Observable{Int}, widget, preserved) where P
         obj = new{P}(observable, widget, preserved)
@@ -43,34 +43,34 @@ end
 
 frame(p::PlayerWithTextbox) = p.frame
 
-function PlayerWithTextbox(builder, index::Observable, range::AbstractUnitRange, id::Integer=1)
+function PlayerWithTextbox(builder, index::Observable{Int}, range::UnitRange{Int}, id::Int=1)
     1 <= id <= 2 || error("only 2 player widgets are defined in player.glade")
     direction = Observable(Int8(0))
-    frame = Gtk.G_.object(builder,"player_frame$id")
-    scale = slider(range; widget=Gtk.G_.object(builder,"index_scale$id"), observable=index)
-    entry = textbox(first(range); widget=Gtk.G_.object(builder,"index_entry$id"), observable=index, range=range)
-    play_back = button(; widget=Gtk.G_.object(builder,"play_back$id"))
-    step_back = button(; widget=Gtk.G_.object(builder,"step_back$id"))
-    stop = button(; widget=Gtk.G_.object(builder,"stop$id"))
-    step_forward = button(; widget=Gtk.G_.object(builder,"step_forward$id"))
-    play_forward = button(; widget=Gtk.G_.object(builder,"play_forward$id"))
+    frame = Gtk.G_.object(builder,"player_frame$id")::Gtk.GtkFrameLeaf
+    scale = slider(range; widget=Gtk.G_.object(builder,"index_scale$id")::Gtk.GtkScaleLeaf, observable=index)
+    entry = textbox(first(range); widget=Gtk.G_.object(builder,"index_entry$id")::Gtk.GtkEntryLeaf, observable=index, range=range)
+    play_back = button(; widget=Gtk.G_.object(builder,"play_back$id")::Gtk.GtkButtonLeaf)
+    step_back = button(; widget=Gtk.G_.object(builder,"step_back$id")::Gtk.GtkButtonLeaf)
+    stop = button(; widget=Gtk.G_.object(builder,"stop$id")::Gtk.GtkButtonLeaf)
+    step_forward = button(; widget=Gtk.G_.object(builder,"step_forward$id")::Gtk.GtkButtonLeaf)
+    play_forward = button(; widget=Gtk.G_.object(builder,"play_forward$id")::Gtk.GtkButtonLeaf)
 
     # Fix up widget properties
     set_gtk_property!(scale.widget, "round-digits", 0)  # glade/gtkbuilder bug that I have to set this here?
 
     # Link the buttons
     clampindex(i) = clamp(i, minimum(range), maximum(range))
-    preserved = Any[on(play_back) do _ direction[] = -1 end,
-                    on(step_back) do _
+    preserved = Any[on(play_back; weak=true) do _ direction[] = -1 end,
+                    on(step_back; weak=true) do _
                        direction[] = 0
                        index[] = clampindex(index[] - 1)
                     end,
-                    on(stop) do _ direction[] = 0 end,
-                    on(step_forward) do _
+                    on(stop; weak=true) do _ direction[] = 0 end,
+                    on(step_forward; weak=true) do _
                        direction[] = 0
                        index[] = clampindex(index[] + 1)
                     end,
-                    on(play_forward) do _ direction[] = +1 end]
+                    on(play_forward; weak=true) do _ direction[] = +1 end]
     function advance()
         i = index[] + direction[]
         if !(i ∈ range)
@@ -81,7 +81,7 @@ function PlayerWithTextbox(builder, index::Observable, range::AbstractUnitRange,
         nothing
     end
     # Stop playing if the widget is destroyed
-    signal_connect(frame, :destroy) do widget
+    signal_connect(frame, "destroy") do widget
         setindex!(direction, 0)
     end
     # Start the timer
@@ -90,16 +90,18 @@ function PlayerWithTextbox(builder, index::Observable, range::AbstractUnitRange,
             advance()
         end
     end)
+    # Configure the cleanup
+    ondestroy(frame, preserved)
     # Create the player object
     PlayerWithTextbox(range, direction, frame, scale, entry, play_back, step_back, stop, step_forward, play_forward), preserved
 end
-function PlayerWithTextbox(index::Observable, range::AbstractUnitRange, id::Integer=1)
+function PlayerWithTextbox(index::Observable{Int}, range::AbstractUnitRange{<:Integer}, id::Integer=1)
     builder = GtkBuilder(filename=joinpath(splitdir(@__FILE__)[1], "player.glade"))
-    PlayerWithTextbox(builder, index, range, id)
+    PlayerWithTextbox(builder, index, convert(UnitRange{Int}, range), convert(Int, id))
 end
 
-player(range::AbstractRange{Int}; style="with-textbox", id::Int=1) =
-    player(Observable(first(range)), range; style=style, id=id)
+player(range::AbstractRange{Int}; style="with-textbox", id::Integer=1) =
+    player(Observable(first(range)), convert(UnitRange{Int}, range)::UnitRange{Int}; style=style, id=id)
 
 """
     player(range; style="with-textbox", id=1)
@@ -113,7 +115,7 @@ slice by keyboard.
 You can create up to two player widgets for the same GUI, as long as
 you pass `id=1` and `id=2`, respectively.
 """
-function player(cs::Observable, range::AbstractUnitRange; style="with-textbox", id::Int=1)
+function player(cs::Observable, range::AbstractUnitRange{<:Integer}; style="with-textbox", id::Integer=1)
     if style == "with-textbox"
         widget, preserved = PlayerWithTextbox(cs, range, id)
         return Player(cs, widget, preserved)
@@ -124,6 +126,7 @@ end
 Base.unsafe_convert(::Type{Ptr{Gtk.GLib.GObject}}, p::PlayerWithTextbox) =
     Base.unsafe_convert(Ptr{Gtk.GLib.GObject}, frame(p))
 
+Gtk.destroy(p::PlayerWithTextbox) = destroy(frame(p))
 
 
 ################# A time widget ##########################
@@ -157,10 +160,10 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
         (Dates.Hour(x), x) # last crop, we have the hours now, and the time is kept as well
     end
     t2 = map(last, H) # here is the final time
-    connect!(observable, t2) # we connect the input and output times so that any update to the resulting time will go into the input observable and actually show on the widgets
+    connect_nofire!(observable, t2) # we connect the input and output times so that any update to the resulting time will go into the input observable and actually show on the widgets
     Sint = Observable(Dates.value(first(S[]))) # necessary for now, until range-like GtkObservables.widgets can accept other ranges.
     Ssb = spinbutton(-1:60, widget=b["second"], observable=Sint) # allow for values outside the actual range of seconds so that we'll be able to increase and decrease minutes.
-    on(Sint) do x
+    on(Sint; weak=true) do x
         Δ = Dates.Second(x) - first(S[]) # how much did we change by, this should always be ±1
         new_t = observable[] + Δ # new time
         new_t = new_t < zerotime ? zerotime : new_t # julia Time is allowed negative values, here we correct for that
@@ -169,11 +172,11 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     end
     Sint2 = map(src -> Dates.value(Dates.Second(src)), t2) # Any change in the value of the seconds, namely 60 -> 0, needs to loop back into the beginning of this last chain of events.
     Sint3 = async_latest(Sint2) # important, otherwise we get an endless update loop
-    connect!(Sint, Sint3) # final step of connecting the two
+    connect_nofire!(Sint, Sint3) # final step of connecting the two
     # everything is the same for minutes:
     Mint = Observable(Dates.value(first(M[])))
     Msb = spinbutton(-1:60, widget=b["minute"], observable=Mint)
-    on(Mint) do x
+    on(Mint; weak=true) do x
         Δ = Dates.Minute(x) - first(M[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -182,11 +185,11 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     end
     Mint2 = map(src -> Dates.value(Dates.Minute(src)), t2)
     Mint3 = async_latest(Mint2)
-    connect!(Mint, Mint3)
+    connect_nofire!(Mint, Mint3)
     # while I think this next part is not entirely necessary for Hours, my brain hurts and I want this to be over. It works.
     Hint = Observable(Dates.value(first(H[])))
     Hsb = spinbutton(0:23, widget=b["hour"], observable=Hint)
-    on(Hint) do x
+    on(Hint; weak=true) do x
         Δ = Dates.Hour(x) - first(H[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -195,7 +198,7 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     end
     Hint2 = map(src -> Dates.value(Dates.Hour(src)), t2)
     Hint3 = async_latest(Hint2)
-    connect!(Hint, Hint3)
+    connect_nofire!(Hint, Hint3)
 
     if widget === nothing
         return TimeWidget(observable, b["frame"])
@@ -244,10 +247,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
         (Dates.Year(x), x)
     end
     t2 = map(last, y)
-    connect!(observable, t2)
+    connect_nofire!(observable, t2)
     Sint = Observable(Dates.value(first(S[])))
     Ssb = spinbutton(-1:60, widget=b["second"], observable=Sint)
-    on(Sint) do x
+    on(Sint; weak=true) do x
         Δ = Dates.Second(x) - first(S[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -256,10 +259,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     Sint2 = map(src -> Dates.value(Dates.Second(src)), t2)
     Sint3 = async_latest(Sint2)
-    connect!(Sint, Sint3)
+    connect_nofire!(Sint, Sint3)
     Mint = Observable(Dates.value(first(M[])))
     Msb = spinbutton(-1:60, widget=b["minute"], observable=Mint)
-    on(Mint) do x
+    on(Mint; weak=true) do x
         Δ = Dates.Minute(x) - first(M[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -268,10 +271,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     Mint2 = map(src -> Dates.value(Dates.Minute(src)), t2)
     Mint3 = async_latest(Mint2)
-    connect!(Mint, Mint3)
+    connect_nofire!(Mint, Mint3)
     Hint = Observable(Dates.value(first(H[])))
     Hsb = spinbutton(-1:24, widget=b["hour"], observable=Hint)
-    on(Hint) do x
+    on(Hint; weak=true) do x
         Δ = Dates.Hour(x) - first(H[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -280,10 +283,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     Hint2 = map(src -> Dates.value(Dates.Hour(src)), t2)
     Hint3 = async_latest(Hint2)
-    connect!(Hint, Hint3)
+    connect_nofire!(Hint, Hint3)
     dint = Observable(Dates.value(first(d[])))
     dsb = spinbutton(-1:32, widget=b["day"], observable=dint)
-    on(dint) do x
+    on(dint; weak=true) do x
         Δ = Dates.Day(x) - first(d[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -292,10 +295,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     dint2 = map(src -> Dates.value(Dates.Day(src)), t2)
     dint3 = async_latest(dint2)
-    connect!(dint, dint3)
+    connect_nofire!(dint, dint3)
     mint = Observable(Dates.value(first(m[])))
     msb = spinbutton(-1:13, widget=b["month"], observable=mint)
-    on(mint) do x
+    on(mint; weak=true) do x
         Δ = Dates.Month(x) - first(m[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -304,10 +307,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     mint2 = map(src -> Dates.value(Dates.Month(src)), t2)
     mint3 = async_latest(mint2)
-    connect!(mint, mint3)
+    connect_nofire!(mint, mint3)
     yint = Observable(Dates.value(first(y[])))
     ysb = spinbutton(-1:10000, widget=b["year"], observable=yint)
-    on(yint) do x
+    on(yint; weak=true) do x
         Δ = Dates.Year(x) - first(y[])
         new_t = observable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
@@ -316,12 +319,19 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     end
     yint2 = map(src -> Dates.value(Dates.Year(src)), t2)
     yint3 = async_latest(yint2)
-    connect!(yint, yint3)
+    connect_nofire!(yint, yint3)
 
-    if widget == nothing
+    if widget === nothing
         return TimeWidget(observable, b["frame"])
     else
         push!(widget, b["frame"])
         return TimeWidget(observable, widget)
     end
+end
+
+function connect_nofire!(dest::Observable, src::Observables.AbstractObservable)
+    on(src; weak=true) do val
+        dest.val = val
+    end
+    return nothing
 end
