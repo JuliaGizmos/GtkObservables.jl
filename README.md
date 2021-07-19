@@ -1,6 +1,6 @@
 # GtkObservables
 
-[![Build Status](https://travis-ci.org/JuliaGizmos/GtkObservables.jl.svg?branch=master)](https://travis-ci.org/JuliaGizmos/GtkObservables.jl)
+[![Build Status](https://github.com/JuliaGizmos/GtkObservables.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/JuliaGizmos/GtkObservables.jl/actions/workflows/CI.yml)
 
 [![codecov](https://codecov.io/gh/JuliaGizmos/GtkObservables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaGizmos/GtkObservables.jl)
 
