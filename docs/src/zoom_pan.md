@@ -94,7 +94,7 @@ julia> zr[] = (100:300, axes(image, 2))
 More useful is to couple `zr` to mouse actions. Let's turn on both
 zooming (with [`init_zoom_rubberband`](@ref)) and panning (with [`init_pan_drag`](@ref)):
 
-```jldoctest demozoom
+```jldoctest demozoom; filter=r"#\d+"
 julia> rb = init_zoom_rubberband(c, zr)
 Dict{String, Any} with 5 entries:
   "drag"    => ObserverFunction(#179, Observable{MouseButton{UserUnit}} with 1 …
