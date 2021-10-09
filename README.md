@@ -12,6 +12,6 @@ aspects of the design of
 to use this package, please see the documentation:
 
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliagizmos.github.io/GtkObservables.jl/stable)
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://juliagizmos.github.io/GtkObservables.jl/latest)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://juliagizmos.github.io/GtkObservables.jl/dev/)
 
 GtkObservables is probably a more future-oriented package than the similar [GtkReactive](https://github.com/JuliaGizmos/GtkReactive.jl) upon which this started.
