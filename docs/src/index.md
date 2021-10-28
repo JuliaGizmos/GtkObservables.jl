@@ -52,4 +52,4 @@ logic" triggers is that it simplifies reasoning about the GUI and
 seems to reduce the number of times ones needs to consult the
 [Gtk documentation](https://developer.gnome.org/gtk3/stable/gtkobjects.html).
 
-Please see the [Observables.jl documentation](http://juliagizmos.github.io/Observables.jl/) for more information.
+Please see the [Observables.jl documentation](https://juliagizmos.github.io/Observables.jl/stable/) for more information.
