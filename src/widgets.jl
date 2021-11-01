@@ -492,11 +492,13 @@ struct Dropdown <: InputWidget{String}
     observable::Observable{String}
     mappedsignal::Observable{Any}
     widget::GtkComboBoxTextLeaf
+    str2int::Dict{String,Int}
+    int2str::Dict{Int,String}
     id::Culong
     preserved::Vector{Any}
 
-    function Dropdown(observable::Observable{String}, mappedsignal::Observable, widget, id, preserved)
-        obj = new(observable, mappedsignal, widget, id, preserved)
+    function Dropdown(observable::Observable{String}, mappedsignal::Observable, widget, str2int, int2str, id, preserved)
+        obj = new(observable, mappedsignal, widget, str2int, int2str, id, preserved)
         gc_preserve(widget, obj)
         obj
     end
@@ -588,7 +590,7 @@ function dropdown(; choices=nothing,
         ondestroy(widget, preserved)
     end
 
-    Dropdown(observable, mappedsignal, widget, id, preserved)
+    Dropdown(observable, mappedsignal, widget, str2int, int2str, id, preserved)
 end
 
 function Base.precompile(w::Dropdown)
@@ -597,6 +599,28 @@ end
 
 function dropdown(choices; kwargs...)
     dropdown(; choices=choices, kwargs...)
+end
+
+function Base.append!(w::Dropdown, choices)
+    allstrings = all(x->isa(x, AbstractString), choices)
+    allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
+    allstrings && w.mappedsignal === nothing || throw(ArgumentError("only pairs may be added to a combobox with pairs, got $choices"))
+    k = length(w.str2int)
+    for c in choices
+        str = juststring(c)
+        push!(w.widget, str)
+        w.str2int[str] = (k+=1)
+        w.int2str[k] = str
+    end
+
+end
+
+function Base.empty!(w::Dropdown)
+    empty!(w.str2int)
+    empty!(w.int2str)
+    empty!(w.widget)
+    w.mappedsignal[] = nothing
+    w.observable = ""
 end
 
 juststring(str::AbstractString) = String(str)
