@@ -558,7 +558,7 @@ function dropdown(; choices=nothing,
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
     getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
-    setactive!(w, val) = @idle_add set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val] - 1)
+    setactive!(w, val) = set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val])
     k = -1
     for c in choices
         str = juststring(c)
@@ -580,7 +580,11 @@ function dropdown(; choices=nothing,
     if !allstrings
         choicedict = Dict(choices...)
         map!(mappedsignal, observable) do val
-            choicedict[val]
+            if val !== nothing
+                choicedict[val]
+            else
+                _ -> nothing
+            end
         end
     end
     if own
@@ -602,7 +606,7 @@ function Base.append!(w::Dropdown, choices)
     allstrings = all(x->isa(x, AbstractString), choices)
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     allstrings && w.mappedsignal[] === nothing || throw(ArgumentError("only pairs may be added to a combobox with pairs, got $choices"))
-    k = length(w.str2int)
+    k = length(w.str2int) - 1
     for c in choices
         str = juststring(c)
         @idle_add push!(w.widget, str)

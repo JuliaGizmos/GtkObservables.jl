@@ -125,14 +125,16 @@ include("tools.jl")
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
-    @test dd[] == "Strawberry"
+    @test dd[] === nothing
+    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Strawberry")
+    @test dd[] === "Strawberry"
     dd[] = "Chocolate"
     @test get_gtk_property(dd, "active", Int) == 2
     destroy(dd.widget)
 
     r = Ref(0)
     dd = dropdown(["Five"=>x->x[]=5,
-                   "Seven"=>x->x[]=7])
+                   "Seven"=>x->x[]=7], value = "Five")
     on(dd.mappedsignal) do f
         f(r)
     end
