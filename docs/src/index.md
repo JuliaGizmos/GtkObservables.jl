@@ -61,11 +61,13 @@ thread that the Gtk main loop is running on. `Observable` handlers may run
 on a different thread. If a UI update operation occurs on a different thread,
 the process (Julia) can crash. The solution is to wrap the offending code block
 with `Gtk.@idle_add`, which requests Gtk to run the code block on the UI thread
-when the CPU is idle.
+when the CPU is idle. However, this also means that code inside the block will 
+not run synchronously with code outside it.
 ```julia
 on(myobs) do val
     @idle_add begin
         # UI update code here
     end
+    # changes inside @idle_add block may not yet have happened here
 end
 ```
