@@ -129,19 +129,15 @@ include("tools.jl")
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Strawberry")
     @test dd[] === "Strawberry"
     dd[] = "Chocolate"
-    sleep(0.5)
     @test get_gtk_property(dd, "active", Int) == 2
     empty!(dd)
-    sleep(0.5)
     @test dd[] === nothing
     @test get_gtk_property(dd, "active", Int) == -1
     @test_throws KeyError dd[] = "Strawberry"
     @test dd[] === nothing
     append!(dd, ("Coffee", "Caramel"))
-    sleep(0.5)
     @test dd[] === nothing
     dd[] = "Caramel"
-    sleep(0.5)
     @test dd[] == "Caramel"
     @test get_gtk_property(dd, "active", Int) == 1
     destroy(dd.widget)

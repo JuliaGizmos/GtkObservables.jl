@@ -564,7 +564,7 @@ function dropdown(; choices=nothing,
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
     getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
-    setactive!(w, val) = (i = val !== nothing ? str2int[val] : -1; @idle_add set_gtk_property!(w, :active, i))
+    setactive!(w, val) = (i = val !== nothing ? str2int[val] : -1; set_gtk_property!(w, :active, i))
     k = -1
     for c in choices
         str = juststring(c)
@@ -615,7 +615,7 @@ function Base.append!(w::Dropdown, choices)
     k = length(w.str2int) - 1
     for c in choices
         str = juststring(c)
-        @idle_add push!(w.widget, str)
+        push!(w.widget, str)
         w.str2int[str] = (k+=1)
     end
     return w
@@ -623,7 +623,7 @@ end
 
 function Base.empty!(w::Dropdown)
     empty!(w.str2int)
-    @idle_add empty!(w.widget)
+    empty!(w.widget)
     w.mappedsignal[] = nothing
     return w
 end
