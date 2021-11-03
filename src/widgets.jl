@@ -22,11 +22,11 @@ init_wobsval(::Type{T}, observable, value; default=nothing) where {T} =
     _init_wobsval(T, observable, value)
 
 _init_wobsval(::Nothing, value) = _init_wobsval(typeof(value), nothing, value)
-_init_wobsval(::Type{T}, ::Nothing, ::Nothing) where {T} = error("must supply an initial value")
 _init_wobsval(::Type{T}, ::Nothing, value) where {T} = Observable{T}(value), value
 _init_wobsval(::Type{T}, observable::Observable{T}, ::Nothing) where {T} =
-    _init_wobsval(T, observable, observable[])
-function _init_wobsval(::Type{T}, observable::Observable{T}, value) where T
+    __init_wobsval(T, observable, observable[])
+_init_wobsval(::Type{T}, observable::Observable{T}, value) where {T} = __init_wobsval(T, observable, value)
+function __init_wobsval(::Type{T}, observable::Observable{T}, value) where T
     setindex!(observable, value)
     observable, value
 end
@@ -489,16 +489,15 @@ end
 ##################### SelectionWidgets ######################
 
 struct Dropdown <: InputWidget{String}
-    observable::Observable{String}
+    observable::Observable{Union{Nothing, String}}
     mappedsignal::Observable{Any}
     widget::GtkComboBoxTextLeaf
     str2int::Dict{String,Int}
-    int2str::Dict{Int,String}
     id::Culong
     preserved::Vector{Any}
 
-    function Dropdown(observable::Observable{String}, mappedsignal::Observable, widget, str2int, int2str, id, preserved)
-        obj = new(observable, mappedsignal, widget, str2int, int2str, id, preserved)
+    function Dropdown(observable::Observable{Union{Nothing, String}}, mappedsignal::Observable, widget, str2int, id, preserved)
+        obj = new(observable, mappedsignal, widget, str2int, id, preserved)
         gc_preserve(widget, obj)
         obj
     end
@@ -535,7 +534,7 @@ To link a callback to the dropdown, use
 """
 function dropdown(; choices=nothing,
                   widget=nothing,
-                  value=juststring(first(choices)),
+                  value=nothing,
                   observable=nothing,
                   label="",
                   with_entry=true,
@@ -543,7 +542,7 @@ function dropdown(; choices=nothing,
                   tooltips=nothing,
                   own=nothing)
     obsin = observable
-    observable, value = init_wobsval(String, observable, value)
+    observable, value = init_wobsval(Union{Nothing, String}, observable, value)
     if own === nothing
         own = observable != obsin
     end
@@ -558,17 +557,15 @@ function dropdown(; choices=nothing,
     allstrings = all(x->isa(x, AbstractString), choices)
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
-    int2str = Dict{Int,String}()
-    getactive(w) = int2str[get_gtk_property(w, :active, Int)]
-    setactive!(w, val) = set_gtk_property!(w, "active", str2int[val])
+    getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
+    setactive!(w, val) = set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val])
     k = -1
     for c in choices
         str = juststring(c)
         push!(widget, str)
         str2int[str] = (k+=1)
-        int2str[k] = str
     end
-    if value == nothing
+    if value === nothing && length(choices) > 0
         value = juststring(first(choices))
     end
     setactive!(widget, value)
@@ -590,7 +587,7 @@ function dropdown(; choices=nothing,
         ondestroy(widget, preserved)
     end
 
-    Dropdown(observable, mappedsignal, widget, str2int, int2str, id, preserved)
+    Dropdown(observable, mappedsignal, widget, str2int, id, preserved)
 end
 
 function Base.precompile(w::Dropdown)
@@ -604,23 +601,21 @@ end
 function Base.append!(w::Dropdown, choices)
     allstrings = all(x->isa(x, AbstractString), choices)
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
-    allstrings && w.mappedsignal === nothing || throw(ArgumentError("only pairs may be added to a combobox with pairs, got $choices"))
+    allstrings && w.mappedsignal[] === nothing || throw(ArgumentError("only pairs may be added to a combobox with pairs, got $choices"))
     k = length(w.str2int)
     for c in choices
         str = juststring(c)
-        push!(w.widget, str)
+        @idle_add push!(w.widget, str)
         w.str2int[str] = (k+=1)
-        w.int2str[k] = str
     end
-
+    return w
 end
 
 function Base.empty!(w::Dropdown)
     empty!(w.str2int)
-    empty!(w.int2str)
-    empty!(w.widget)
+    @idle_add empty!(w.widget)
     w.mappedsignal[] = nothing
-    w.observable = ""
+    return w
 end
 
 juststring(str::AbstractString) = String(str)
