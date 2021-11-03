@@ -52,7 +52,13 @@ function init_observable2widget(getter::Function,
         if signal_handler_is_connected(widget, id)
             signal_handler_block(widget, id)  # prevent "recursive firing" of the handler
             curval = getter(widget)
-            curval != val && setter!(widget, val)
+            try
+                curval != val && setter!(widget, val)
+            catch
+                # if there's a problem setting the widget value, revert the observable
+                observable[] = curval
+                rethrow()
+            end
             signal_handler_unblock(widget, id)
             nothing
         end
@@ -558,7 +564,7 @@ function dropdown(; choices=nothing,
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
     getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
-    setactive!(w, val) = set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val])
+    setactive!(w, val) = (i = val !== nothing ? str2int[val] : -1; set_gtk_property!(w, :active, i))
     k = -1
     for c in choices
         str = juststring(c)
