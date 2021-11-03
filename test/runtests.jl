@@ -129,6 +129,7 @@ include("tools.jl")
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Strawberry")
     @test dd[] === "Strawberry"
     dd[] = "Chocolate"
+    sleep(0.5)
     @test get_gtk_property(dd, "active", Int) == 2
     empty!(dd)
     sleep(0.5)
@@ -140,6 +141,7 @@ include("tools.jl")
     sleep(0.5)
     @test dd[] === nothing
     dd[] = "Caramel"
+    sleep(0.5)
     @test dd[] == "Caramel"
     @test get_gtk_property(dd, "active", Int) == 1
     destroy(dd.widget)
