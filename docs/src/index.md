@@ -53,3 +53,19 @@ seems to reduce the number of times ones needs to consult the
 [Gtk documentation](https://developer.gnome.org/gtk3/stable/gtkobjects.html).
 
 Please see the [Observables.jl documentation](https://juliagizmos.github.io/Observables.jl/stable/) for more information.
+
+## Important note: The UI thread
+
+Changes to the UI can only be performed safely if the code is run in the same
+thread that the Gtk main loop is running on. `Observable` handlers may run
+on a different thread. If a UI update operation occurs on a different thread,
+the process (Julia) can crash. The solution is to wrap the offending code block
+with `Gtk.@idle_add`, which requests Gtk to run the code block on the UI thread
+when the CPU is idle.
+```julia
+on(myobs) do val
+    @idle_add begin
+        # UI update code here
+    end
+end
+```
