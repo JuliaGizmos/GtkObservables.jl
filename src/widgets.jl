@@ -558,7 +558,7 @@ function dropdown(; choices=nothing,
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
     getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
-    setactive!(w, val) = set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val])
+    setactive!(w, val) = @idle_add set_gtk_property!(w, :active, val === nothing ? 0 : str2int[val] - 1)
     k = -1
     for c in choices
         str = juststring(c)
