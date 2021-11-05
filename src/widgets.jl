@@ -25,6 +25,8 @@ _init_wobsval(::Nothing, value) = _init_wobsval(typeof(value), nothing, value)
 _init_wobsval(::Type{T}, ::Nothing, value) where {T} = Observable{T}(value), value
 _init_wobsval(::Type{T}, observable::Observable{T}, ::Nothing) where {T} =
     __init_wobsval(T, observable, observable[])
+_init_wobsval(::Type{Union{Nothing, T}}, observable::Observable{T}, ::Nothing) where {T} =
+    __init_wobsval(T, observable, observable[])
 _init_wobsval(::Type{T}, observable::Observable{T}, value) where {T} = __init_wobsval(T, observable, value)
 function __init_wobsval(::Type{T}, observable::Observable{T}, value) where T
     setindex!(observable, value)
@@ -495,14 +497,14 @@ end
 ##################### SelectionWidgets ######################
 
 struct Dropdown <: InputWidget{String}
-    observable::Observable{Union{Nothing, String}}
+    observable::Union{Observable{String}, Observable{Union{Nothing, String}}} # consider removing support for Observable{String} in next breaking release
     mappedsignal::Observable{Any}
     widget::GtkComboBoxTextLeaf
     str2int::Dict{String,Int}
     id::Culong
     preserved::Vector{Any}
 
-    function Dropdown(observable::Observable{Union{Nothing, String}}, mappedsignal::Observable, widget, str2int, id, preserved)
+    function Dropdown(observable::Union{Observable{String}, Observable{Union{Nothing, String}}}, mappedsignal::Observable, widget, str2int, id, preserved)
         obj = new(observable, mappedsignal, widget, str2int, id, preserved)
         gc_preserve(widget, obj)
         obj
@@ -565,14 +567,19 @@ function dropdown(; choices=nothing,
     str2int = Dict{String,Int}()
     getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
     setactive!(w, val) = (i = val !== nothing ? str2int[val] : -1; set_gtk_property!(w, :active, i))
+    if length(choices) > 0
+        if value === nothing || (observable isa Observable{String} && value ∉ juststring.(choices))
+            # default to the first choice if value is nothing, or else if it's an empty String observable
+            # and none of the choices are empty strings
+            value = juststring(first(choices))
+            observable[] = value
+        end
+    end
     k = -1
     for c in choices
         str = juststring(c)
         push!(widget, str)
         str2int[str] = (k+=1)
-    end
-    if value === nothing && length(choices) > 0
-        value = juststring(first(choices))
     end
     setactive!(widget, value)
 
@@ -622,6 +629,8 @@ function Base.append!(w::Dropdown, choices)
 end
 
 function Base.empty!(w::Dropdown)
+    w.observable isa Observable{String} &&
+        throw(ArgumentError("empty! is only supported when the associated observable is of type $(Union{Nothing, String})"))
     empty!(w.str2int)
     empty!(w.widget)
     w.mappedsignal[] = nothing

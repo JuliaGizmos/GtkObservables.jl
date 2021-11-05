@@ -125,9 +125,15 @@ include("tools.jl")
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
-    @test dd[] === nothing
-    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Strawberry")
     @test dd[] === "Strawberry"
+    destroy(dd.widget)
+
+    dd = dropdown(())
+    @test dd[] === nothing
+    destroy(dd.widget)
+
+    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Vanilla")
+    @test dd[] === "Vanilla"
     dd[] = "Chocolate"
     @test get_gtk_property(dd, "active", Int) == 2
     empty!(dd)
@@ -156,6 +162,12 @@ include("tools.jl")
     @test r[] == 7
     dd[] = "Five"
     @test r[] == 5
+    destroy(dd.widget)
+
+    # if the Observable is just of type String, don't support unselected state (compatibility with 1.0.0)
+    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), observable = Observable(""))
+    @test dd[] === "Strawberry"
+    @test_throws ArgumentError empty!(dd)
     destroy(dd.widget)
 
     ## spinbutton
