@@ -102,7 +102,7 @@ sigend = on(c.mouse.buttonrelease) do btn
         push!(lines[], newline[])
         # For the next click, make sure `newline` starts out empty
         # We do this in a way that prevents triggering anything (yet).
-        newline.value = []
+        newline.val = []
         # Now trigger
         Observables.notify!(lines)
     end
