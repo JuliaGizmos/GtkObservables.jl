@@ -125,14 +125,32 @@ include("tools.jl")
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
-    @test dd[] == "Strawberry"
+    @test dd[] === "Strawberry"
+    destroy(dd.widget)
+
+    dd = dropdown(())
+    @test dd[] === nothing
+    destroy(dd.widget)
+
+    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Vanilla")
+    @test dd[] === "Vanilla"
     dd[] = "Chocolate"
     @test get_gtk_property(dd, "active", Int) == 2
+    empty!(dd)
+    @test dd[] === nothing
+    @test get_gtk_property(dd, "active", Int) == -1
+    @test_throws KeyError dd[] = "Strawberry"
+    @test dd[] === nothing
+    append!(dd, ("Coffee", "Caramel"))
+    @test dd[] === nothing
+    dd[] = "Caramel"
+    @test dd[] == "Caramel"
+    @test get_gtk_property(dd, "active", Int) == 1
     destroy(dd.widget)
 
     r = Ref(0)
     dd = dropdown(["Five"=>x->x[]=5,
-                   "Seven"=>x->x[]=7])
+                   "Seven"=>x->x[]=7], value = "Five")
     on(dd.mappedsignal) do f
         f(r)
     end
@@ -144,6 +162,12 @@ include("tools.jl")
     @test r[] == 7
     dd[] = "Five"
     @test r[] == 5
+    destroy(dd.widget)
+
+    # if the Observable is just of type String, don't support unselected state (compatibility with 1.0.0)
+    dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), observable = Observable(""))
+    @test dd[] === "Strawberry"
+    @test_throws ArgumentError empty!(dd)
     destroy(dd.widget)
 
     ## spinbutton

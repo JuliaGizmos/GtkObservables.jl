@@ -22,11 +22,13 @@ init_wobsval(::Type{T}, observable, value; default=nothing) where {T} =
     _init_wobsval(T, observable, value)
 
 _init_wobsval(::Nothing, value) = _init_wobsval(typeof(value), nothing, value)
-_init_wobsval(::Type{T}, ::Nothing, ::Nothing) where {T} = error("must supply an initial value")
 _init_wobsval(::Type{T}, ::Nothing, value) where {T} = Observable{T}(value), value
 _init_wobsval(::Type{T}, observable::Observable{T}, ::Nothing) where {T} =
-    _init_wobsval(T, observable, observable[])
-function _init_wobsval(::Type{T}, observable::Observable{T}, value) where T
+    __init_wobsval(T, observable, observable[])
+_init_wobsval(::Type{Union{Nothing, T}}, observable::Observable{T}, ::Nothing) where {T} =
+    __init_wobsval(T, observable, observable[])
+_init_wobsval(::Type{T}, observable::Observable{T}, value) where {T} = __init_wobsval(T, observable, value)
+function __init_wobsval(::Type{T}, observable::Observable{T}, value) where T
     setindex!(observable, value)
     observable, value
 end
@@ -52,7 +54,13 @@ function init_observable2widget(getter::Function,
         if signal_handler_is_connected(widget, id)
             signal_handler_block(widget, id)  # prevent "recursive firing" of the handler
             curval = getter(widget)
-            curval != val && setter!(widget, val)
+            try
+                curval != val && setter!(widget, val)
+            catch
+                # if there's a problem setting the widget value, revert the observable
+                observable[] = curval
+                rethrow()
+            end
             signal_handler_unblock(widget, id)
             nothing
         end
@@ -489,14 +497,15 @@ end
 ##################### SelectionWidgets ######################
 
 struct Dropdown <: InputWidget{String}
-    observable::Observable{String}
+    observable::Union{Observable{String}, Observable{Union{Nothing, String}}} # consider removing support for Observable{String} in next breaking release
     mappedsignal::Observable{Any}
     widget::GtkComboBoxTextLeaf
+    str2int::Dict{String,Int}
     id::Culong
     preserved::Vector{Any}
 
-    function Dropdown(observable::Observable{String}, mappedsignal::Observable, widget, id, preserved)
-        obj = new(observable, mappedsignal, widget, id, preserved)
+    function Dropdown(observable::Union{Observable{String}, Observable{Union{Nothing, String}}}, mappedsignal::Observable, widget, str2int, id, preserved)
+        obj = new(observable, mappedsignal, widget, str2int, id, preserved)
         gc_preserve(widget, obj)
         obj
     end
@@ -533,7 +542,7 @@ To link a callback to the dropdown, use
 """
 function dropdown(; choices=nothing,
                   widget=nothing,
-                  value=juststring(first(choices)),
+                  value=nothing,
                   observable=nothing,
                   label="",
                   with_entry=true,
@@ -541,7 +550,7 @@ function dropdown(; choices=nothing,
                   tooltips=nothing,
                   own=nothing)
     obsin = observable
-    observable, value = init_wobsval(String, observable, value)
+    observable, value = init_wobsval(Union{Nothing, String}, observable, value)
     if own === nothing
         own = observable != obsin
     end
@@ -556,18 +565,21 @@ function dropdown(; choices=nothing,
     allstrings = all(x->isa(x, AbstractString), choices)
     allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
     str2int = Dict{String,Int}()
-    int2str = Dict{Int,String}()
-    getactive(w) = int2str[get_gtk_property(w, :active, Int)]
-    setactive!(w, val) = set_gtk_property!(w, "active", str2int[val])
+    getactive(w) = (val = GAccessor.active_text(w); val == C_NULL ? nothing : Gtk.bytestring(val))
+    setactive!(w, val) = (i = val !== nothing ? str2int[val] : -1; set_gtk_property!(w, :active, i))
+    if length(choices) > 0
+        if value === nothing || (observable isa Observable{String} && value ∉ juststring.(choices))
+            # default to the first choice if value is nothing, or else if it's an empty String observable
+            # and none of the choices are empty strings
+            value = juststring(first(choices))
+            observable[] = value
+        end
+    end
     k = -1
     for c in choices
         str = juststring(c)
         push!(widget, str)
         str2int[str] = (k+=1)
-        int2str[k] = str
-    end
-    if value == nothing
-        value = juststring(first(choices))
     end
     setactive!(widget, value)
 
@@ -581,14 +593,18 @@ function dropdown(; choices=nothing,
     if !allstrings
         choicedict = Dict(choices...)
         map!(mappedsignal, observable) do val
-            choicedict[val]
+            if val !== nothing
+                choicedict[val]
+            else
+                _ -> nothing
+            end
         end
     end
     if own
         ondestroy(widget, preserved)
     end
 
-    Dropdown(observable, mappedsignal, widget, id, preserved)
+    Dropdown(observable, mappedsignal, widget, str2int, id, preserved)
 end
 
 function Base.precompile(w::Dropdown)
@@ -597,6 +613,28 @@ end
 
 function dropdown(choices; kwargs...)
     dropdown(; choices=choices, kwargs...)
+end
+
+function Base.append!(w::Dropdown, choices)
+    allstrings = all(x->isa(x, AbstractString), choices)
+    allstrings || all(x->isa(x, Pair), choices) || throw(ArgumentError("all elements must either be strings or pairs, got $choices"))
+    allstrings && w.mappedsignal[] === nothing || throw(ArgumentError("only pairs may be added to a combobox with pairs, got $choices"))
+    k = length(w.str2int) - 1
+    for c in choices
+        str = juststring(c)
+        push!(w.widget, str)
+        w.str2int[str] = (k+=1)
+    end
+    return w
+end
+
+function Base.empty!(w::Dropdown)
+    w.observable isa Observable{String} &&
+        throw(ArgumentError("empty! is only supported when the associated observable is of type $(Union{Nothing, String})"))
+    empty!(w.str2int)
+    empty!(w.widget)
+    w.mappedsignal[] = nothing
+    return w
 end
 
 juststring(str::AbstractString) = String(str)
