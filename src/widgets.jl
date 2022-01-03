@@ -1080,4 +1080,4 @@ function progressbar(interval::AbstractInterval{T};
     ProgressBar(observable, widget, preserved)
 end
 
-progressbar(range::AbstractRange; args...) = progressbar(ClosedInterval(range), args...)
+progressbar(range::AbstractRange; args...) = progressbar(ClosedInterval(range); args...)
