@@ -328,6 +328,56 @@ end
 button(label::Union{String,Symbol}; widget=nothing, observable=nothing, own=nothing) =
     button(; label=label, widget=widget, observable=observable, own=own)
 
+######################### ColorButton ###########################
+
+struct ColorButton{C} <: InputWidget{Nothing}
+    observable::Observable{C}
+    widget::GtkColorButtonLeaf
+    id::Culong
+
+    function ColorButton{C}(observable::Observable{C}, widget, id) where C <: Colorant
+        obj = new(observable, widget, id)
+        gc_preserve(widget, obj)
+        obj
+    end
+end
+
+colorbutton(observable::Observable{C}, widget::GtkColorButtonLeaf, id) where C <: Colorant =
+    ColorButton{C}(observable, widget, id)
+
+"""
+    button(color; widget=nothing, observable=nothing)
+    button(; color=nothing, widget=nothing, observable=nothing)
+
+Create a push button with color `color`. Optionally provide:
+  - a GtkButton `widget` (by default, creates a new one)
+  - the (Observables.jl) `observable` coupled to this button (by default, creates a new observable)
+"""
+function colorbutton(;
+                color::C = RGBA(0, 0, 0, 0),
+                widget=nothing,
+                observable=nothing,
+                own=nothing) where C <: Colorant
+    obsin = observable
+    if observable === nothing
+        observable = Observable(color)
+    end
+    if own === nothing
+        own = observable != obsin
+    end
+    if widget === nothing
+        widget = GtkColorButton(Gtk.GdkRGBA(0, 0, 0, 0.5))
+    end
+
+    id = signal_connect(widget, "clicked") do w
+        setindex!(observable, nothing)
+    end # not right here
+
+    ColorButton{C}(observable, widget, id)
+end
+colorbutton(color::Colorant; widget=nothing, observable=nothing, own=nothing) =
+    colorbutton(; color=color, widget=widget, observable=observable, own=own)
+
 ######################## Textbox ###########################
 
 struct Textbox{T} <: InputWidget{T}
