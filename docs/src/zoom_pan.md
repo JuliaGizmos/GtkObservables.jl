@@ -83,7 +83,7 @@ julia> Gtk.showall(win);
 
 ![image1](assets/image1.png)
 
-We could `push!` values to `zr` and see the image update:
+We could change the value of `zr` and see the image update:
 ```jldoctest demozoom
 julia> zr[] = (100:300, axes(image, 2))
 (100:300, Base.OneTo(768))

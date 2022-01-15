@@ -727,8 +727,7 @@ end
 """
     label(value; widget=nothing, observable=nothing)
 
-Create a text label displaying `value` as a string; new values may
-displayed by pushing to the widget. Optionally specify
+Create a text label displaying `value` as a string. Optionally specify
   - the GtkLabel `widget` (by default, creates a new one)
   - the (Observables.jl) `observable` coupled to this label (by default, creates a new observable)
 """
@@ -1028,8 +1027,7 @@ interval2fraction(x::AbstractInterval, i) = (i - minimum(x))/IntervalSets.width(
 """
     progressbar(interval::AbstractInterval; widget=nothing, observable=nothing)
 
-Create a progressbar displaying the current state in the given interval; new iterations may be
-displayed by pushing to the widget. Optionally specify
+Create a progressbar displaying the current state in the given interval. Optionally specify
   - the GtkProgressBar `widget` (by default, creates a new one)
   - the (Observables.jl) `observable` coupled to this progressbar (by default, creates a new observable)
 
@@ -1047,7 +1045,7 @@ Gtk.GtkProgressBarLeaf with 1: "input" = 1 Int64
 
 julia> for i = 1:n
            # do something
-           push!(pb, i)
+           pb[] = i
        end
 
 ```
