@@ -1045,7 +1045,7 @@ Gtk.GtkProgressBarLeaf with 1: "input" = 1 Int64
 
 julia> for i = 1:n
            # do something
-           push!(pb, i)
+           pb[] = i
        end
 
 ```
