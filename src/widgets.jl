@@ -333,23 +333,22 @@ button(label::Union{String,Symbol}; widget=nothing, observable=nothing, own=noth
 struct ColorButton{C} <: InputWidget{Nothing}
     observable::Observable{C}
     widget::GtkColorButtonLeaf
-    id::Culong
 
-    function ColorButton{C}(observable::Observable{C}, widget, id) where C <: Colorant
-        obj = new(observable, widget, id)
+    function ColorButton{C}(observable::Observable{C}, widget) where C <: Colorant
+        obj = new(observable, widget)
         gc_preserve(widget, obj)
         obj
     end
 end
 
-colorbutton(observable::Observable{C}, widget::GtkColorButtonLeaf, id) where C <: Colorant =
-    ColorButton{C}(observable, widget, id)
+colorbutton(observable::Observable{C}, widget::GtkColorButtonLeaf) where C <: Colorant =
+    ColorButton{C}(observable, widget)
 
 """
-    button(color; widget=nothing, observable=nothing)
-    button(; color=nothing, widget=nothing, observable=nothing)
+    colorbutton(color; widget=nothing, observable=nothing)
+    colorbutton(; color=nothing, widget=nothing, observable=nothing)
 
-Create a push button with color `color`. Optionally provide:
+Create a push button with color `color`. Clicking opens a color picker. Optionally provide:
   - a GtkButton `widget` (by default, creates a new one)
   - the (Observables.jl) `observable` coupled to this button (by default, creates a new observable)
 """
@@ -365,15 +364,19 @@ function colorbutton(;
     if own === nothing
         own = observable != obsin
     end
+    gcolor = Gtk.GdkRGBA(color.r, color.g, color.b, color.alpha)
     if widget === nothing
-        widget = GtkColorButton(Gtk.GdkRGBA(0, 0, 0, 0.5))
+        widget = GtkColorButton(gcolor)
+    else
+        set_gtk_property!(widget, :rgba, gcolor)
     end
 
-    id = signal_connect(widget, "clicked") do w
-        setindex!(observable, nothing)
-    end # not right here
+    id = signal_connect(widget, "color-set") do w
+        color = get_gtk_property(widget, :rgba, Gtk.GdkRGBA)
+        setindex!(observable, RGBA(color.r, color.g, color.b, color.a))
+    end
 
-    ColorButton{C}(observable, widget, id)
+    ColorButton{C}(observable, widget)
 end
 colorbutton(color::Colorant; widget=nothing, observable=nothing, own=nothing) =
     colorbutton(; color=color, widget=widget, observable=observable, own=own)
