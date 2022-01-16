@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>A simple drawing program · GtkObservables</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.039/juliamono-regular.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.11/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">GtkObservables</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Introduction</a></li><li><a class="tocitem" href="../controls/">A first example: GUI controls</a></li><li class="is-active"><a class="tocitem" href>A simple drawing program</a></li><li><a class="tocitem" href="../zoom_pan/">Zoom and pan</a></li><li><a class="tocitem" href="../reference/">Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>A simple drawing program</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>A simple drawing program</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/JuliaGizmos/GtkObservables.jl/blob/master/docs/src/drawing.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="A-simple-drawing-program"><a class="docs-heading-anchor" href="#A-simple-drawing-program">A simple drawing program</a><a id="A-simple-drawing-program-1"></a><a class="docs-heading-anchor-permalink" href="#A-simple-drawing-program" title="Permalink"></a></h1><p>Aside from widgets, GtkObservables also adds canvas interactions, specifically handling of mouse clicks and scroll events. We can explore some of these tools by building a simple program for drawing lines.</p><p>Let&#39;s begin by creating a window with a canvas in it:</p><pre><code class="language-julia hljs">using Gtk.ShortNames, GtkObservables, Graphics, Colors
+
+win = Window(&quot;Drawing&quot;)
+c = canvas(UserUnit)       # create a canvas with user-specified coordinates
+push!(win, c)</code></pre><p>A few concepts from Cairo are important here:</p><ul><li>all drawing occurs on a <code>canvas</code> object, which corresponds to a region of a window</li><li>Cairo canvases can use two different coordinate systems: screen pixels, often called <a href="../reference/#GtkObservables.DeviceUnit"><code>DeviceUnit</code></a>, and a user-specified custom coordinate system, called <a href="../reference/#GtkObservables.UserUnit"><code>UserUnit</code></a>.</li></ul><p>Here we specified <a href="../reference/#GtkObservables.UserUnit"><code>UserUnit</code></a> units for our drawing and mouse-position units; we chose these to be (0,0) for the top left and (1,1) for the bottom right. With this choice, if a user resizes the window by dragging its border, our lines will stay in the same relative position.</p><p>We&#39;re going to set this up so that a new line is started when the user clicks with the left mouse button; when the user releases the mouse button, the line is finished and added to a list of previously-drawn lines. Consequently, we need a place to store user data. We&#39;ll use Signals, so that our Canvas will be notified when there is new material to draw:</p><pre><code class="language-julia hljs">const lines = Observable([])   # the list of lines that we&#39;ll draw
+const newline = Observable([]) # the in-progress line (will be added to list above)</code></pre><p>Now, let&#39;s make our application respond to mouse-clicks. An important detail about a <code>GtkObservables.Canvas</code> object is that it contains a <a href="../reference/#GtkObservables.MouseHandler"><code>MouseHandler</code></a>, accessible with <code>c.mouse</code>; this object contains <code>Observables.Observable</code> objects for mouse button press/release events, mouse movements, and scrolling:</p><pre><code class="language-julia hljs">const drawing = Observable(false)  # this will become true if we&#39;re actively dragging
+
+# c.mouse.buttonpress is a `Observables.Observable` that updates whenever the
+# user clicks the mouse inside the canvas. The value of this observable is
+# a MouseButton which contains position and other information.
+
+# We&#39;re going to define a callback function that runs whenever the
+# button is clicked. If we just wanted to print the value of the
+# returned button object, we could just say
+#     map(println, c.mouse.buttonpress)
+# However, here our function is longer than `println`, so
+# we&#39;re going to use Julia&#39;s do-block syntax to define the function:
+sigstart = on(c.mouse.buttonpress) do btn
+    # This is the beginning of the function body, operating on the argument `btn`
+    if btn.button == 1 &amp;&amp; btn.modifiers == 0 # is it the left button, and no shift/ctrl/alt keys pressed?
+        drawing[] = true   # activate dragging
+        newline[] = [btn.position]  # initialize the line with the current position
+    end
+end</code></pre><p>We assigned the output of <code>on</code> to a variable to prevent it from being garbage-collected. (We could use <code>GtkObservables.gc_preserve(win, sigstart)</code> if we wanted to keep it alive for at least as long as <code>win</code> is active.)</p><p>Once the user clicks the button, <code>drawing</code> holds value <code>true</code>; from that point forward, any movement of the mouse extends the line by an additional vertex:</p><pre><code class="language-julia hljs">sigextend = on(c.mouse.motion) do btn
+    if drawing[]      # pay attention to motion only when we&#39;re dragging
+        # extend `newline` with the most recent point
+        push!(newline[], btn.position)
+        # notify any observers -- alternatively we could reassign to newline[]
+        Observables.notify!(newline)
+    end
+end</code></pre><p>Notice that we made this conditional on <code>drawing</code>.</p><p>Finally, when the user releases the mouse button, we stop drawing, store <code>newline</code> in <code>lines</code>, and prepare for the next line by starting with an empty <code>newline</code>:</p><pre><code class="language-julia hljs">sigend = on(c.mouse.buttonrelease) do btn
+    if btn.button == 1
+        drawing[] = false  # deactivate dragging
+        # append our new line to the overall list
+        push!(lines[], newline[])
+        # For the next click, make sure `newline` starts out empty
+        # We do this in a way that prevents triggering anything (yet).
+        newline.val = []
+        # Now trigger
+        Observables.notify!(lines)
+    end
+end</code></pre><p>At this point, you could already verify that these interactions work by monitoring <code>lines</code> from the command line by clicking, dragging, and releasing.</p><p>However, it&#39;s much more fun to see it in action. Let&#39;s set up a <a href="http://juliagraphics.github.io/Gtk.jl/latest/manual/canvas.html"><code>draw</code></a> method for the canvas, which will be called (1) whenever the window resizes (this is arranged by Gtk.jl), or (2) whenever <code>lines</code> or <code>newline</code> update (because we supply them as arguments to the <code>draw</code> function):</p><pre><code class="language-julia hljs"># Because `draw` isn&#39;t a one-line function, we again use do-block syntax:
+redraw = draw(c, lines, newline) do cnvs, lns, newl  # the function body takes 3 arguments
+    fill!(cnvs, colorant&quot;white&quot;)   # set the background to white
+    set_coordinates(cnvs, BoundingBox(0, 1, 0, 1))  # set coordinates to 0..1 along each axis
+    ctx = getgc(cnvs)   # gets the &quot;graphics context&quot; object (see Cairo/Gtk)
+    for l in lns
+        drawline(ctx, l, colorant&quot;blue&quot;)  # draw old lines in blue
+    end
+    drawline(ctx, newl, colorant&quot;red&quot;)    # draw new line in red
+end
+
+function drawline(ctx, l, color)
+    isempty(l) &amp;&amp; return
+    p = first(l)
+    move_to(ctx, p.x, p.y)
+    set_source(ctx, color)
+    for i = 2:length(l)
+        p = l[i]
+        line_to(ctx, p.x, p.y)
+    end
+    stroke(ctx)
+end</code></pre><p>A lot of these commands come from Cairo.jl and/or Graphics.jl.</p><p>Our application is done! (But don&#39;t forget to <code>showall(win)</code>.) Here&#39;s a picture of me in the middle of a very fancy drawing:</p><p><img src="../assets/drawing.png" alt="drawing"/></p><p>You can play with the completed application in the <code>examples/</code> folder.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../controls/">« A first example: GUI controls</a><a class="docs-footer-nextpage" href="../zoom_pan/">Zoom and pan »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.10 on <span class="colophon-date" title="Sunday 16 January 2022 10:53">Sunday 16 January 2022</span>. Using Julia version 1.7.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
