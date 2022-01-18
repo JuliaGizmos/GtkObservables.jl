@@ -59,6 +59,16 @@ include("tools.jl")
     @test Gtk.G_.active(tgl.widget)
     destroy(w)
 
+    ## colorbutton
+    w = Window("Colorbutton")
+    cb = colorbutton(color=RGB(1, 0, 1))
+    push!(w, cb)
+    Gtk.showall(w)
+    @test cb[] == RGB(1, 0, 1)
+    cb[] = RGB(0, 1, 0)
+    @test cb[] == RGB(0, 1, 0)
+    destroy(w)
+
     ## textbox (aka Entry)
     txt = textbox("Type something")
     num = textbox(5, range=1:10)
