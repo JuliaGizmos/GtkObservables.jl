@@ -372,7 +372,7 @@ function colorbutton(;
     if widget === nothing
         widget = GtkColorButton(convert(Gtk.GdkRGBA, color))
     else
-        setcolor!(w, color)
+        setcolor!(widget, color)
     end
     id = signal_connect(widget, "color-set") do w
         setindex!(observable, convert(C, convert(RGBA, getcolor(widget))))
