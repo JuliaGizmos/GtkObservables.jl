@@ -333,16 +333,21 @@ button(label::Union{String,Symbol}; widget=nothing, observable=nothing, own=noth
 struct ColorButton{C} <: InputWidget{Nothing}
     observable::Observable{C}
     widget::GtkColorButtonLeaf
+    id::Culong
+    preserved::Vector{Any}
 
-    function ColorButton{C}(observable::Observable{C}, widget) where C <: Colorant
-        obj = new(observable, widget)
+    function ColorButton{C}(observable::Observable{C}, widget, id, preserved) where {T, C <: Color{T, 3}}
+        obj = new(observable, widget, id, preserved)
         gc_preserve(widget, obj)
         obj
     end
 end
 
-colorbutton(observable::Observable{C}, widget::GtkColorButtonLeaf) where C <: Colorant =
-    ColorButton{C}(observable, widget)
+colorbutton(observable::Observable{C}, widget::GtkColorButtonLeaf, id, preserved = []) where {T, C <: Color{T, 3}} =
+    ColorButton{C}(observable, widget, id, preserved)
+
+Base.convert(::Type{RGBA}, gcolor::Gtk.GdkRGBA) = RGBA(gcolor.r, gcolor.g, gcolor.b, gcolor.a)
+Base.convert(::Type{Gtk.GdkRGBA}, color::Colorant) = Gtk.GdkRGBA(red(color), green(color), blue(color), alpha(color))
 
 """
     colorbutton(color; widget=nothing, observable=nothing)
@@ -353,32 +358,35 @@ Create a push button with color `color`. Clicking opens a color picker. Optional
   - the (Observables.jl) `observable` coupled to this button (by default, creates a new observable)
 """
 function colorbutton(;
-                color::C = RGBA(0, 0, 0, 0),
+                color::C = RGB(0, 0, 0),
                 widget=nothing,
                 observable=nothing,
-                own=nothing) where C <: Colorant
+                own=nothing) where {T, C <: Color{T, 3}}
     obsin = observable
-    if observable === nothing
-        observable = Observable(color)
-    end
+    observable, color = init_wobsval(observable, color)
     if own === nothing
         own = observable != obsin
     end
-    gcolor = Gtk.GdkRGBA(color.r, color.g, color.b, color.alpha)
+    getcolor(w) = get_gtk_property(w, :rgba, Gtk.GdkRGBA)
+    setcolor!(w, val) = set_gtk_property!(w, :rgba, convert(Gtk.GdkRGBA, val))
     if widget === nothing
-        widget = GtkColorButton(gcolor)
+        widget = GtkColorButton(convert(Gtk.GdkRGBA, color))
     else
-        set_gtk_property!(widget, :rgba, gcolor)
+        setcolor!(w, color)
     end
-
     id = signal_connect(widget, "color-set") do w
-        color = get_gtk_property(widget, :rgba, Gtk.GdkRGBA)
-        setindex!(observable, RGBA(color.r, color.g, color.b, color.a))
+        setindex!(observable, convert(C, convert(RGBA, getcolor(widget))))
+    end
+    preserved = []
+    push!(preserved, init_observable2widget(getcolor, setcolor!, widget, id, observable))
+
+    if own
+        ondestroy(widget, preserved)
     end
 
-    ColorButton{C}(observable, widget)
+    ColorButton{C}(observable, widget, id, preserved)
 end
-colorbutton(color::Colorant; widget=nothing, observable=nothing, own=nothing) =
+colorbutton(color::Color{T, 3}; widget=nothing, observable=nothing, own=nothing) where T =
     colorbutton(; color=color, widget=widget, observable=observable, own=own)
 
 ######################## Textbox ###########################
