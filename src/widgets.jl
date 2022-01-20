@@ -445,8 +445,9 @@ function textbox(::Type{T};
     end
     set_gtk_property!(widget, "text", value)
 
-    id = signal_connect(widget, gtksignal) do w
+    id = signal_connect(widget, gtksignal) do w, _...
         setindex!(observable, entrygetter(w, observable, range))
+        return false
     end
 
     preserved = []
