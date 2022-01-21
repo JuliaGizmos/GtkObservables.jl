@@ -371,6 +371,9 @@ function textbox(::Type{T};
     if T <: AbstractString && range !== nothing
         throw(ArgumentError("You cannot set a range on a string textbox"))
     end
+    if T <: Number && gtksignal == "changed"
+        throw(ArgumentError("The `changed` signal with a numeric textbox is not supported."))
+    end
     obsin = observable
     observable, value = init_wobsval(T, observable, value; default="")
     if own === nothing
