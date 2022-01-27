@@ -353,8 +353,8 @@ Base.convert(::Type{Gtk.GdkRGBA}, color::Colorant) = Gtk.GdkRGBA(red(color), gre
     colorbutton(color; widget=nothing, observable=nothing)
     colorbutton(; color=nothing, widget=nothing, observable=nothing)
 
-Create a push button with color `color`. Clicking opens a color picker. Optionally provide:
-  - a GtkButton `widget` (by default, creates a new one)
+Create a push button with color `color`. Clicking opens the Gtk color picker. Optionally provide:
+  - a GtkColorButton `widget` (by default, creates a new one)
   - the (Observables.jl) `observable` coupled to this button (by default, creates a new observable)
 """
 function colorbutton(;
