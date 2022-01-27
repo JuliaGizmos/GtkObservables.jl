@@ -72,9 +72,11 @@ include("tools.jl")
     ## textbox (aka Entry)
     txt = textbox("Type something")
     num = textbox(5, range=1:10)
+    lost_focus = textbox("Type something"; gtksignal = "focus-out-event")
     win = Window("Textboxes") |> (bx = Box(:h))
     push!(bx, txt)
     push!(bx, num)
+    push!(bx, lost_focus)
     Gtk.showall(win)
     @test get_gtk_property(txt, "text", String) == "Type something"
     txt[] = "ok"
@@ -94,6 +96,12 @@ include("tools.jl")
     @test meld[] == "other directionX4"
     txt[] = "4"
     @test meld[] == "4X4"
+    @test get_gtk_property(lost_focus, "text", String) == "Type something"
+    set_gtk_property!(lost_focus, "text", "Something!")
+    grab_focus(widget(lost_focus))
+    @test lost_focus[] == "Type something"
+    grab_focus(widget(txt))
+    @test lost_focus[] == "Something!"
     destroy(win)
 
     ## textarea (aka TextView)
