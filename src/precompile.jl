@@ -25,6 +25,12 @@ function _precompile_()
     precompile(btn)
     destroy(btn)
 
+    # colorbutton
+    cbtn = colorbutton(RGB(0, 0, 0))
+    cbtn[] = RGB(1, 0, 0)
+    precompile(cbtn)
+    destroy(cbtn)
+
     # textbox
     tb1, tb2 = textbox("Edit me"), textbox(3; range=1:5)
     tb1[] = "done"
