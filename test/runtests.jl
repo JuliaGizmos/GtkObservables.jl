@@ -97,10 +97,11 @@ include("tools.jl")
     txt[] = "4"
     @test meld[] == "4X4"
     @test get_gtk_property(lost_focus, "text", String) == "Type something"
-    set_gtk_property!(lost_focus, "text", "Something!")
     grab_focus(widget(lost_focus))
+    set_gtk_property!(lost_focus, "text", "Something!")
     @test lost_focus[] == "Type something"
-    grab_focus(widget(txt))
+    signal_emit(widget(lost_focus), "focus-out-event", Bool, Gtk.GdkEventAny(0, Ptr{Nothing}(), 0))
+    @test get_gtk_property(lost_focus, "text", String) == "Something!"
     @test lost_focus[] == "Something!"
     destroy(win)
 
