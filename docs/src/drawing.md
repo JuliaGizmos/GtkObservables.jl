@@ -145,6 +145,11 @@ function drawline(ctx, l, color)
 end
 ```
 
+**Important note:** Only modify the canvas inside the `draw` function, and pass
+all observables that you want to consume as additional arguments (the example shows 
+three, but you may pass as few or as many as you wish). Otherwise, you
+may find the rendering behaves unexpectedly.
+
 A lot of these commands come from Cairo.jl and/or Graphics.jl.
 
 Our application is done! (But don't forget to `showall(win)`.) Here's a
