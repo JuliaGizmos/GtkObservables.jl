@@ -46,6 +46,7 @@ include("tools.jl")
     @test check[]
     @test Gtk.G_.active(check.widget)
     destroy(w)
+    sleep(0.1)  # work around https://github.com/JuliaGraphics/Gtk.jl/issues/391#issuecomment-1107840526
 
     ## togglebutton
     w = Window("Togglebutton")
@@ -58,6 +59,7 @@ include("tools.jl")
     @test tgl[]
     @test Gtk.G_.active(tgl.widget)
     destroy(w)
+    sleep(0.1)
 
     ## colorbutton
     w = Window("Colorbutton")
@@ -68,6 +70,7 @@ include("tools.jl")
     cb[] = RGB(0, 1, 0)
     @test cb[] == RGB(0, 1, 0)
     destroy(w)
+    sleep(0.1)
 
     ## textbox (aka Entry)
     txt = textbox("Type something")
@@ -104,6 +107,7 @@ include("tools.jl")
     @test get_gtk_property(lost_focus, "text", String) == "Something!"
     @test lost_focus[] == "Something!"
     destroy(win)
+    sleep(0.1)
 
     ## textarea (aka TextView)
     v = textarea("Type something longer")
@@ -113,6 +117,7 @@ include("tools.jl")
     v[] = "ok"
     @test get_gtk_property(Gtk.G_.buffer(v.widget), "text", String) == "ok"
     destroy(win)
+    sleep(0.1)
 
     ## slider
     s = slider(1:15)
@@ -125,6 +130,7 @@ include("tools.jl")
     @test s3[] == 0
     s3[] = -3
     @test s3[] == -3
+    sleep(0.1)
 
     # Use a single observable for two widgets
     s2 = slider(1:15, observable=observable(s), orientation='v')
@@ -133,6 +139,7 @@ include("tools.jl")
     @test s[] == 11
     destroy(s2)
     destroy(s)
+    sleep(0.1)
 
     # Updating the limits of the slider
     s = slider(1:15)
@@ -141,6 +148,7 @@ include("tools.jl")
     s[] = 1:7, 5
     sleep(0.01)
     @test s[] == 5
+    sleep(0.1)
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
@@ -188,6 +196,7 @@ include("tools.jl")
     @test dd[] === "Strawberry"
     @test_throws ArgumentError empty!(dd)
     destroy(dd.widget)
+    sleep(0.1)
 
     ## spinbutton
     s = spinbutton(1:15)
@@ -207,6 +216,7 @@ include("tools.jl")
     @test s[] == 1
     s[] = 1:7, 5
     @test s[] == 5
+    sleep(0.1)
 
 
     ## cyclicspinbutton
@@ -232,6 +242,7 @@ include("tools.jl")
     s = cyclicspinbutton(0:59, carry_up, orientation="vertical")
     @test G_.orientation(Orientable(widget(s))) == Gtk.GConstants.GtkOrientation.VERTICAL
     destroy(s)
+    sleep(0.1)
 
     # timewidget
     t = Dates.Time(1,1,1)
@@ -244,6 +255,7 @@ include("tools.jl")
     t = Dates.Time(3,3,3)
     s[] = t
     @test tw[] == s[] == t
+    sleep(0.1)
 
     # datetimewidget
     t = DateTime(1,1,1,1,1,1)
@@ -256,6 +268,7 @@ include("tools.jl")
     t = DateTime(3,3,3,3,3,3)
     s[] = t
     @test tw[] == s[] == t
+    sleep(0.1)
 
     # progressbar
     pb = progressbar(1..10)
@@ -264,6 +277,7 @@ include("tools.jl")
     @test pb[] == 5
     pb = progressbar(2:8)
     @test pb[] == 2
+    sleep(0.1)
 
 end
 
