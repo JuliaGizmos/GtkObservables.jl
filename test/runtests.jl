@@ -34,6 +34,8 @@ include("tools.jl")
         str*str
     end
     @test ldouble[] == "and againand again"
+    # printing
+    @test string(l) == "Gtk.GtkLabelLeaf with Observable{String} with 2 listeners. Value:\n\"and again\""
 
     ## checkbox
     w = Window("Checkbox")
@@ -325,6 +327,7 @@ if Gtk.libgtk_version >= v"3.10"
                     sleep(0.1)
         end
         @test s[] == 8
+        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8"
         destroy(win)
 
         p = player(1:1000)
@@ -387,6 +390,7 @@ end
     reveal(c, true)
     sleep(1.0)
     @test isa(c, GtkObservables.Canvas{UserUnit})
+    @test string(c) == "GtkObservables.Canvas{UserUnit}()"
     corner_dev = (DeviceUnit(208), DeviceUnit(207))
     can_test_coords = (VERSION < v"1.3" || get(ENV, "CI", nothing) != "true" || !Sys.islinux()) &&
                       can_test_width
