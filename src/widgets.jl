@@ -166,7 +166,7 @@ function Base.setindex!(s::Slider, (range,value)::Tuple{AbstractRange, Any})
     Gtk.G_.lower(adj, first(range))
     Gtk.G_.upper(adj, last(range))
     Gtk.G_.step_increment(adj, step(range))
-    Gtk.G_.value(widget(s), value)
+    Gtk.@sigatom Gtk.G_.value(widget(s), value)
 end
 Base.setindex!(s::Slider, range::AbstractRange) = setindex!(s, (range, s[]))
 
