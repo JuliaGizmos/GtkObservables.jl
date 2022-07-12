@@ -8,7 +8,9 @@ lines.
 Let's begin by creating a window with a canvas in it:
 
 ```julia
-using Gtk.ShortNames, GtkObservables, Graphics, Colors
+using GtkObservables, Colors
+using GtkObservables.Gtk
+using GtkObservables.Gtk.ShortNames
 
 win = Window("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates
@@ -83,7 +85,7 @@ sigextend = on(c.mouse.motion) do btn
         # extend `newline` with the most recent point
         push!(newline[], btn.position)
         # notify any observers -- alternatively we could reassign to newline[]
-        Observables.notify!(newline)
+        notify(newline)
     end
 end
 ```
@@ -104,7 +106,7 @@ sigend = on(c.mouse.buttonrelease) do btn
         # We do this in a way that prevents triggering anything (yet).
         newline.val = []
         # Now trigger
-        Observables.notify!(lines)
+        notify(lines)
     end
 end
 ```
@@ -125,7 +127,7 @@ function):
 redraw = draw(c, lines, newline) do cnvs, lns, newl  # the function body takes 3 arguments
     fill!(cnvs, colorant"white")   # set the background to white
     set_coordinates(cnvs, BoundingBox(0, 1, 0, 1))  # set coordinates to 0..1 along each axis
-    ctx = getgc(cnvs)   # gets the "graphics context" object (see Cairo/Gtk)
+    ctx = Gtk.getgc(cnvs)   # gets the "graphics context" object (see Cairo/Gtk)
     for l in lns
         drawline(ctx, l, colorant"blue")  # draw old lines in blue
     end
