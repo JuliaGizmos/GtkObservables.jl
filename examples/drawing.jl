@@ -20,7 +20,7 @@ const dummybutton = MouseButton{UserUnit}()
 sigextend = on(c.mouse.motion) do btn
     if drawing[]
         push!(newline[], btn.position)
-        Observables.notify!(newline)
+        Observables.notify(newline)
     end
 end
 
@@ -29,7 +29,7 @@ sigend = on(c.mouse.buttonrelease) do btn
         drawing[] = false  # stop extending the line
         push!(lines[], newline[])
         newline.val = []
-        Observables.notify!(lines)
+        Observables.notify(lines)
     end
 end
 
