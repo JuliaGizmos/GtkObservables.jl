@@ -83,7 +83,7 @@ sigextend = on(c.mouse.motion) do btn
         # extend `newline` with the most recent point
         push!(newline[], btn.position)
         # notify any observers -- alternatively we could reassign to newline[]
-        Observables.notify!(newline)
+        Observables.notify(newline)
     end
 end
 ```
@@ -104,7 +104,7 @@ sigend = on(c.mouse.buttonrelease) do btn
         # We do this in a way that prevents triggering anything (yet).
         newline.val = []
         # Now trigger
-        Observables.notify!(lines)
+        Observables.notify(lines)
     end
 end
 ```
