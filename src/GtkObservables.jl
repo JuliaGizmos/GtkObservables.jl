@@ -159,7 +159,6 @@ function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     end
 end
 
-include("precompile.jl")
-Base.VERSION >= v"1.4.2" && _precompile_() # https://github.com/JuliaLang/julia/pull/35378
+Base.VERSION >= v"1.4.2" && include("precompile.jl")
 
 end # module

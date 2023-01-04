@@ -361,7 +361,7 @@ function colorbutton(;
                 color::C = RGB(0, 0, 0),
                 widget=nothing,
                 observable=nothing,
-                own=nothing) where {T, C <: Color{T, 3}}
+                own=nothing) where {C <: Color3}
     obsin = observable
     observable, color = init_wobsval(observable, color)
     if own === nothing
