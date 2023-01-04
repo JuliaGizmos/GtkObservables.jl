@@ -35,7 +35,8 @@ include("tools.jl")
     end
     @test ldouble[] == "and againand again"
     # printing
-    @test string(l) == "Gtk.GtkLabelLeaf with Observable{String} with 2 listeners. Value:\n\"and again\""
+    @test string(l) == "Gtk.GtkLabelLeaf with Observable{String} with 2 listeners. Value:\n\"and again\"" ||
+          string(l) == "Gtk.GtkLabelLeaf with Observable(\"and again\")"
 
     ## checkbox
     w = Window("Checkbox")
@@ -327,7 +328,8 @@ if Gtk.libgtk_version >= v"3.10"
                     sleep(0.1)
         end
         @test s[] == 8
-        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8"
+        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
+              string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
         destroy(win)
 
         p = player(1:1000)
