@@ -202,3 +202,5 @@ using SnoopPrecompile
         end
     end
 end
+
+sleep(1)   # ensure all timers are closed

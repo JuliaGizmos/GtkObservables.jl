@@ -79,6 +79,11 @@ Create a `destroy` callback for `widget` that terminates updating dependent sign
 """
 function ondestroy(widget::GtkWidget, preserved::AbstractVector)
     signal_connect(widget, "destroy") do widget
+        for item in preserved
+            if isa(item, Timer)
+                close(item)
+            end
+        end
         empty!(preserved)
     end
     nothing
