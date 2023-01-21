@@ -316,22 +316,22 @@ if Gtk.libgtk_version >= v"3.10"
         ## player widget
         s = Observable(1)
         p = player(s, 1:8)
-        # win = Window("Compound", 400, 100) |> (g = Grid())
-        # g[1,1] = p
-        # Gtk.showall(win)
-        # btn_fwd = p.widget.step_forward
-        # @test s[] == 1
-        # btn_fwd[] = nothing
-        # @test s[] == 2
-        # p.widget.play_forward[] = nothing
-        # for i = 1:7
-        #     sleep(0.1)
-        # end
-        # @test s[] == 8
-        # @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
-        #       string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
-        # destroy(p)
-        # destroy(win)
+        win = Window("Compound", 400, 100) |> (g = Grid())
+        g[1,1] = p
+        Gtk.showall(win)
+        btn_fwd = p.widget.step_forward
+        @test s[] == 1
+        btn_fwd[] = nothing
+        @test s[] == 2
+        p.widget.play_forward[] = nothing
+        for i = 1:7
+            sleep(0.1)
+        end
+        @test s[] == 8
+        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
+              string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
+        destroy(p)
+        destroy(win)
 
         # p = player(1:1000)
         # win = Window("Compound 2", 400, 100)
