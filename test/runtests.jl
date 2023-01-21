@@ -318,8 +318,8 @@ if Gtk.libgtk_version >= v"3.10"
         p = player(s, 1:8)
         win = Window("Compound", 400, 100) |> (g = Grid())
         g[1,1] = p
-        Gtk.showall(win)
-        sleep(1)
+        # Gtk.showall(win)
+        # sleep(1)
         # btn_fwd = p.widget.step_forward
         # @test s[] == 1
         # btn_fwd[] = nothing
