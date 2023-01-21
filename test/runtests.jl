@@ -310,7 +310,7 @@ const counter = Ref(0)
     button(; widget=ToolButton("Save as..."))
 end
 
-if Gtk.libgtk_version >= v"3.10"
+if Gtk.libgtk_version >= v"3.10" && !Sys.isapple()
     # To support GtkBuilder, we need this as the minimum libgtk version
     @testset "Compound widgets" begin
         ## player widget
