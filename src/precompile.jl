@@ -167,6 +167,7 @@ using SnoopPrecompile
                     circle(ctx, x, y, 5)
                     stroke(ctx)
                 end
+                destroy(c)
                 destroy(win)
             end
             win = GtkWindow() |> (c = canvas(UserUnit))
@@ -197,10 +198,13 @@ using SnoopPrecompile
                         eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
             signal_emit(widget(c), "scroll-event", Bool,
                         eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
+            destroy(c)
             destroy(win)
         catch
         end
     end
 end
 
-sleep(1)   # ensure all timers are closed
+GC.gc(true)  # allow canvases to finalize
+sleep(1)     # ensure all timers are closed
+GC.gc(true)  # allow canvases to finalize

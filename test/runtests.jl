@@ -325,11 +325,12 @@ if Gtk.libgtk_version >= v"3.10"
         @test s[] == 2
         p.widget.play_forward[] = nothing
         for i = 1:7
-                    sleep(0.1)
+            sleep(0.1)
         end
         @test s[] == 8
         @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
               string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
+        destroy(p)
         destroy(win)
 
         p = player(1:1000)
@@ -337,6 +338,7 @@ if Gtk.libgtk_version >= v"3.10"
         push!(win, frame(p))
         Gtk.showall(win)
         widget(p).direction[] = 1
+        destroy(p)
         destroy(win)  # this should not generate a lot of output
     end
 end

@@ -249,6 +249,8 @@ struct Canvas{U}
 end
 Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own)
 
+Gtk.destroy(c::Canvas) = destroy(c.widget)
+
 Base.show(io::IO, canvas::Canvas{U}) where U = print(io, "GtkObservables.Canvas{$U}()")
 
 """
