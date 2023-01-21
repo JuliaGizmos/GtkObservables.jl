@@ -126,7 +126,16 @@ end
 Base.unsafe_convert(::Type{Ptr{Gtk.GLib.GObject}}, p::PlayerWithTextbox) =
     Base.unsafe_convert(Ptr{Gtk.GLib.GObject}, frame(p))
 
-Gtk.destroy(p::PlayerWithTextbox) = destroy(frame(p))
+function Gtk.destroy(p::PlayerWithTextbox)
+    destroy(p.play_back)
+    destroy(p.step_back)
+    destroy(p.stop)
+    destroy(p.step_forward)
+    destroy(p.play_forward)
+    destroy(p.entry)
+    destroy(p.scale)
+    destroy(frame(p))
+end
 
 
 ################# A time widget ##########################
