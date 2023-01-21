@@ -135,24 +135,21 @@ using SnoopPrecompile
         p[] = 2
         destroy(p)
 
-        # # timewidget
-        # tw = timewidget(Dates.Time(1,1,1))
-        # tw[] = Dates.Time(2,2,2)
-        # precompile(tw)
-        # destroy(tw)
+        # timewidget
+        tw = timewidget(Dates.Time(1,1,1))
+        tw[] = Dates.Time(2,2,2)
+        precompile(tw)
+        destroy(tw)
 
-        # # datetimewidget
-        # dtw = datetimewidget(DateTime(1,1,1,1,1,1))
-        # dtw[] = DateTime(2,2,2,2,2,2)
-        # destroy(dtw)
+        # datetimewidget
+        dtw = datetimewidget(DateTime(1,1,1,1,1,1))
+        dtw[] = DateTime(2,2,2,2,2,2)
+        destroy(dtw)
 
         # canvas
-        try # if we don't have a display this might fail
+        try # if we don't have a display, this might fail?
             for U in (UserUnit, DeviceUnit)
-                # win = GtkWindow() |> (f = GtkAspectFrame("Some title", 0.5, 0.5, 3.0)) |> (c = canvas(U, 100, 100))
-                win = GtkWindow() |> (c = canvas(U, 100, 100))
-                Gtk.showall(win)
-                sleep(1)
+                c = canvas(U, 100, 100)
                 fill!(c, RGB(0, 0, 0))
                 fill!(c, RGBA(1, 1, 1, 1))
                 lastevent = Ref("nothing")
@@ -168,11 +165,8 @@ using SnoopPrecompile
                     stroke(ctx)
                 end
                 destroy(c)
-                destroy(win)
             end
-            win = GtkWindow() |> (c = canvas(UserUnit))
-            Gtk.showall(win)
-            sleep(1)
+            c = canvas(UserUnit)
             zr = Observable(ZoomRegion((1:11, 1:20)))
             zoomrb = init_zoom_rubberband(c, zr)
             zooms = init_zoom_scroll(c, zr)
@@ -199,7 +193,6 @@ using SnoopPrecompile
             signal_emit(widget(c), "scroll-event", Bool,
                         eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
             destroy(c)
-            destroy(win)
         catch
         end
     end
