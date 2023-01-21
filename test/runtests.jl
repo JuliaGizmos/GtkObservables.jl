@@ -330,7 +330,7 @@ if Gtk.libgtk_version >= v"3.10"
         @test s[] == 8
         @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
               string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
-        destroy(p)
+        # destroy(p)
         destroy(win)
 
         # p = player(1:1000)
