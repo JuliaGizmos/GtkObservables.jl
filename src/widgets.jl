@@ -122,14 +122,15 @@ Create a slider widget with the specified `range`. Optionally provide:
   - the (Observables.jl) `observable` coupled to this slider (by default, creates a new observable)
   - the `orientation` of the slider.
 """
-function slider(range::AbstractRange{T};
+function slider(range::AbstractRange;
                 widget=nothing,
                 value=nothing,
                 observable=nothing,
                 orientation="horizontal",
                 syncsig=true,
-                own=nothing) where T
+                own=nothing)
     obsin = observable
+    T = isa(observable, Observable) ? eltype(observable) : eltype(range)
     observable, value = init_wobsval(T, observable, value; default=medianelement(range))
     if own === nothing
         own = observable != obsin
@@ -935,7 +936,11 @@ function spinbutton(range::AbstractRange{T};
                     syncsig=true,
                     own=nothing) where T
     obsin = observable
-    observable, value = init_wobsval(T, observable, value; default=range.start)
+    Tel = T
+    if isa(obsin, Observable)
+        Tel = eltype(obsin)
+    end
+    observable, value = init_wobsval(Tel, observable, value; default=range.start)
     if own === nothing
         own = observable != obsin
     end
