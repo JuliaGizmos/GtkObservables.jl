@@ -40,7 +40,7 @@ using PrecompileTools
                            C_NULL,
                            0.0, 0.0)
     end
-    const ModType = Gtk.GConstants.GdkModifierType
+    ModType = Gtk.GConstants.GdkModifierType
     mask(btn) =
         btn == 1 ? ModType.GDK_BUTTON1_MASK :
         btn == 2 ? ModType.GDK_BUTTON2_MASK :
