@@ -1,6 +1,6 @@
-using SnoopPrecompile
+using PrecompileTools
 
-@precompile_setup begin
+@setup_workload begin
     function eventbutton(c, event_type, btn, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
         xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
         Gtk.GdkEventButton(event_type,
@@ -48,7 +48,7 @@ using SnoopPrecompile
         error(btn, " not recognized")
 
     imgrand = rand(RGB{N0f8}, 100, 100)
-    @precompile_all_calls begin
+    @compile_workload begin
         # slider
         sl = slider(1:3)
         sl[] = (1:5, 3)
