@@ -1,6 +1,6 @@
 name = "GtkObservables"
 uuid = "8710efd8-4ad6-11eb-33ea-2d5ceb25a41c"
-version = "1.2.8"
+version = "1.2.9"
 
 [deps]
 Cairo = "159f3aea-2a34-519c-b102-8c37f9878175"
@@ -12,9 +12,9 @@ Gtk = "4c0ca9eb-093a-5379-98c5-f87ac0bbbf44"
 IntervalSets = "8197267c-284f-5f27-9208-e0e47529a953"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 RoundingIntegers = "d5f540fe-1c90-5db3-b776-2e2f362d9394"
-PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
 [compat]
 Cairo = "1"
@@ -24,9 +24,9 @@ Graphics = "1"
 Gtk = "1"
 IntervalSets = "0.5, 0.6, 0.7"
 Observables = "0.4, 0.5"
+PrecompileTools = "1"
 Reexport = "0.2, 1"
 RoundingIntegers = "0.2, 1"
-PrecompileTools = "1"
 julia = "1.3"
 
 [extras]
