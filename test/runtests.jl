@@ -20,7 +20,7 @@ include("tools.jl")
     @test get_gtk_property(l, "label", String) == "Hello"
     l[] = "world"
     @test get_gtk_property(l, "label", String) == "world"
-    #@test string(l) == string("Gtk4.GtkLabelLeaf with ", string(observable(l)))
+    @test string(l) == string("Gtk4.GtkLabelLeaf with ", string(observable(l)))
     # Test other elements of the Observables API
     counter = Ref(0)
     ofunc = on(l) do _
@@ -37,7 +37,7 @@ include("tools.jl")
     end
     @test ldouble[] == "and againand again"
     # printing
-    #@test string(l) == "Gtk4.GtkLabelLeaf with Observable(\"and again\")"
+    @test string(l) == "Gtk4.GtkLabelLeaf with Observable(\"and again\")"
 
     ## checkbox
     w = GtkWindow("Checkbox")
@@ -76,13 +76,13 @@ include("tools.jl")
     ## textbox (aka Entry)
     txt = textbox("Type something")
     num = textbox(5, range=1:10)
-    #lost_focus = textbox("Type something"; gtksignal = "activate")
+    lost_focus = textbox("Type something"; gtksignal = "focus-leave")
     win = GtkWindow("Textboxes")
     bx = GtkBox(:h)
     win[] = bx
     push!(bx, txt)
     push!(bx, num)
-    #push!(bx, lost_focus)
+    push!(bx, lost_focus)
     @test get_gtk_property(txt, "text", String) == "Type something"
     txt[] = "ok"
     @test get_gtk_property(txt, "text", String) == "ok"
@@ -101,13 +101,13 @@ include("tools.jl")
     @test meld[] == "other directionX4"
     txt[] = "4"
     @test meld[] == "4X4"
-    #@test get_gtk_property(lost_focus, "text", String) == "Type something"
-    #grab_focus(widget(lost_focus))
-    #set_gtk_property!(lost_focus, "text", "Something!")
-    #@test lost_focus[] == "Type something"
-    #Gtk4.activate(widget(lost_focus))
-    #@test get_gtk_property(lost_focus, "text", String) == "Something!"
-    #@test lost_focus[] == "Something!"
+    @test get_gtk_property(lost_focus, "text", String) == "Type something"
+    grab_focus(widget(lost_focus))
+    set_gtk_property!(lost_focus, "text", "Something!")
+    @test lost_focus[] == "Type something"
+    grab_focus(widget(txt))
+    @test get_gtk_property(lost_focus, "text", String) == "Something!"
+    @test lost_focus[] == "Something!"
     Gtk4.destroy(win)
     sleep(0.1)
 
@@ -282,11 +282,10 @@ const counter = Ref(0)
         counter[] += 1
     end
     cc = counter[]  # map seems to fire it once, so record the "new" initial value
-    click(b::GtkObservables.Button) = activate(b.widget)
+    click(b::GtkObservables.Button) = signal_emit(widget(b),"clicked",Nothing)
     GC.gc(true)
-    ret = click(b)
-    @test ret==true
-    #@test counter[] == cc+1
+    click(b)
+    @test counter[] == cc+1
     Gtk4.destroy(w)
 end
 

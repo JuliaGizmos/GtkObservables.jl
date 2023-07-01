@@ -448,10 +448,19 @@ function textbox(::Type{T};
         widget = GtkEntry()
     end
     set_gtk_property!(widget, "text", value)
-
-    id = signal_connect(widget, gtksignal) do w, _...
-        setindex!(observable, entrygetter(w, observable, range))
-        return false
+    
+    if gtksignal == "focus-leave"
+        controller = GtkEventControllerFocus(widget)
+        id = signal_connect(controller, "leave") do c, _...
+            w=Gtk4.widget(c)
+            setindex!(observable, entrygetter(w, observable, range))
+            return false
+        end
+    else
+    	id = signal_connect(widget, gtksignal) do w, _...
+            setindex!(observable, entrygetter(w, observable, range))
+            return false
+        end
     end
 
     preserved = []
