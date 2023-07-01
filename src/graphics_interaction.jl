@@ -139,10 +139,9 @@ function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=
     MouseButton{U}(pos, UInt32(button), clicktype, UInt32(modifiers), n_press, gtkevent)
 end
 function MouseButton{U}(e::GtkGestureSingle, n_press::Int32, x::Float64, y::Float64, clicktype) where U
-    button = Gtk4.button(e)
+    button = Gtk4.current_button(e)
     modifiers = Gtk4.current_event_state(e)
     w = widget(e)
-    #evt = Gtk4.current_event(e)
     MouseButton{U}(XY{U}(w, x, y), button, clicktype, UInt32(modifiers), n_press, nothing)
 end
 function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::Float64, clicktype) where U
@@ -186,7 +185,11 @@ end
 function MouseScroll{U}(e::GtkEventController, direction) where U
     modifiers = Gtk4.current_event_state(e)
     evt = Gtk4.current_event(e)
-    b, x, y = Gtk4.position(evt)
+    b, x, y = if evt.handle != C_NULL
+        Gtk4.position(evt)
+    else
+        (false, 0.0, 0.0)
+    end
     w = widget(e)
     MouseScroll{U}(XY{U}(w, x, y), direction, modifiers)
 end
@@ -221,8 +224,7 @@ struct MouseHandler{U<:CairoUnit}
         ids = Vector{Culong}(undef, 0)
         handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas)
         # Create the callbacks
-        g = GtkGestureClick(canvas,1)
-        g3 = GtkGestureClick(canvas,3)
+        g = GtkGestureClick(canvas,0)
         gm = GtkEventControllerMotion(canvas)
         gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_VERTICAL, canvas)
 
@@ -236,8 +238,6 @@ struct MouseHandler{U<:CairoUnit}
         end
         push!(ids, signal_connect(mousedown_cb, g, "pressed"))
         push!(ids, signal_connect(mouseup_cb, g, "released"))
-        #push!(ids, signal_connect(mousedown_cb, g3, "pressed"))
-        #push!(ids, signal_connect(mouseup_cb, g3, "released"))
 
         function mousemove_cb(ec::GtkEventControllerMotion, x::Float64, y::Float64)
             handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY)

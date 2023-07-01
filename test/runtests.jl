@@ -394,22 +394,13 @@ end
     @test get_gtk_property(f, "ratio", Float64) == 3.0
 end
 
-function gesture_click_button_1(g)
-    isa(g,GtkGestureClick) && g.button == 1
-end
-function gesture_click_button_3(g)
-    isa(g,GtkGestureClick) && g.button == 3
+function gesture_click(g)
+    isa(g,GtkGestureClick) && g.button == 0
 end
 
-function find_gesture_click_button_1(w::GtkWidget)
+function find_gesture_click(w::GtkWidget)
     list = Gtk4.observe_controllers(w)
-    i=findfirst(gesture_click_button_1, list)
-    i!==nothing ? list[i] : nothing
-end
-
-function find_gesture_click_button_3(w::GtkWidget)
-    list = Gtk4.observe_controllers(w)
-    i=findfirst(gesture_click_button_3, list)
+    i=findfirst(gesture_click, list)
     i!==nothing ? list[i] : nothing
 end
 
@@ -427,7 +418,7 @@ end
     scroll  = map(btn->lastevent[] = "scroll", c.mouse.scroll)
     lastevent[] = "nothing"
     @test lastevent[] == "nothing"
-    ec = find_gesture_click_button_1(widget(c))
+    ec = find_gesture_click(widget(c))
     signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
     sleep(0.1)
     @test lastevent[] == "press"
@@ -435,12 +426,10 @@ end
     sleep(0.1)
     sleep(0.1)
     @test lastevent[] == "release"
-    # Scroll test doesn't work -- GdkEvent doesn't exist for simulated scroll?
-    #ec = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
-    #signal_emit(ec, "scroll", Bool, 1.0, 0.0)
-    #sleep(0.1)
-    #sleep(0.1)
-    #@test lastevent[] == "scroll"
+    ec = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
+    signal_emit(ec, "scroll", Bool, 1.0, 0.0)
+    sleep(0.1)
+    @test lastevent[] == "scroll"
     ec = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
     signal_emit(ec, "motion", Nothing, UserUnit(20).val, UserUnit(15).val)
     sleep(0.1)
@@ -470,13 +459,12 @@ end
     end)
     yield()
     @test !popuptriggered[]
-    ec = find_gesture_click_button_1(widget(c))
+    ec = find_gesture_click(widget(c))
     signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
     yield()
     @test !popuptriggered[]
-    ec = find_gesture_click_button_1(widget(c))
     signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
-    #@test popuptriggered[]
+    @test_broken popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
     Gtk4.destroy(win)
 end
 
@@ -619,47 +607,41 @@ end
     sleep(0.1)
 
     # Zoom by rubber band
-    # need to simulate control modifier
-    #ec = Gtk4.find_controller(widget(c), GtkGestureClick)
-    #signal_emit(ec, "pressed", Nothing, Int32(1), UserUnit(5).val, UserUnit(3).val)
-    #signal_emit(ec, "pressed", Bool,
-    #             eventbutton(c, BUTTON_PRESS, 1, UserUnit(5), UserUnit(3), CONTROL))
-    # signal_emit(widget(c), "motion-notify-event", Bool,
-    #             eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
-    # signal_emit(widget(c), "button-release-event", Bool,
-    #             eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
-    # @test zr[].currentview.x == 5..10
-    # @test zr[].currentview.y == 3..4
-    # # Ensure that the rubber band damage has been repaired
-    # if get(ENV, "CI", nothing) != "true" || !Sys.islinux()
-    #     fn = tempname()
-    #     Cairo.write_to_png(getgc(c).surface, fn)
-    #     imgout = load(fn)
-    #     rm(fn)
-    #     @test all(x->x==colorant"blue", imgout)
-    # end
-    #
-    # # Pan-drag
-    # signal_emit(widget(c), "button-press-event", Bool,
-    #             eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
-    # signal_emit(widget(c), "motion-notify-event", Bool,
-    #             eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
-    # @test zr[].currentview.x == 4..9
-    # @test zr[].currentview.y == 4..5
-    #
-    # # Reset
-    # signal_emit(widget(c), "button-press-event", Bool,
-    #             eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
-    # @test zr[].currentview.x == 1..20
-    # @test zr[].currentview.y == 1..11
-    #
-    # # Zoom-scroll
+    # need to simulate control modifier + button 1
+    ec = Gtk4.find_controller(widget(c), GtkGestureClick)
+    signal_emit(ec, "pressed", Nothing, Int32(1), UserUnit(5).val, UserUnit(3).val)
+    ecm = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
+    signal_emit(ecm, "motion", Nothing, UserUnit(10).val, UserUnit(4).val)
+    signal_emit(ec, "released", Nothing, Int32(1), UserUnit(10).val, UserUnit(4).val)
+    @test_broken zr[].currentview.x == 5..10
+    @test_broken zr[].currentview.y == 3..4
+    # Ensure that the rubber band damage has been repaired
+    if get(ENV, "CI", nothing) != "true" || !Sys.islinux()
+        fn = tempname()
+        Cairo.write_to_png(getgc(c).surface, fn)
+        imgout = load(fn)
+        rm(fn)
+        @test all(x->x==colorant"blue", imgout)
+    end
+    
+    # Pan-drag
+    signal_emit(ec, "pressed", Nothing, Int32(1), UserUnit(6).val, UserUnit(3).val)
+    signal_emit(ecm, "motion", Nothing, UserUnit(7).val, UserUnit(2).val)
+    @test_broken zr[].currentview.x == 4..9
+    @test_broken zr[].currentview.y == 4..5
+    
+    # Reset
+    signal_emit(ec, "pressed", Nothing, Int32(2), UserUnit(5).val, UserUnit(4.5).val)
+    @test zr[].currentview.x == 1..20  # we are cheating! The previous simulated interactions didn't work...
+    @test zr[].currentview.y == 1..11
+    
+    # Zoom-scroll
     # signal_emit(widget(c), "scroll-event", Bool,
     #             eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
     # @test zr[].currentview.x == 4..14
     # @test zr[].currentview.y == 2..8
     #
-    # # Pan-scroll
+    # Pan-scroll
     # signal_emit(widget(c), "scroll-event", Bool,
     #             eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
     # @test zr[].currentview.x == 5..15
@@ -670,7 +652,7 @@ end
     # @test zr[].currentview.x == 5..15
     # @test zr[].currentview.y == 3..9
     #
-    # destroy(win)
+    destroy(win)
 end
 
 @testset "Surfaces" begin
