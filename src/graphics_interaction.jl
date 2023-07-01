@@ -1,8 +1,5 @@
 # Much of this is event-handling to support interactivity
 
-using Gtk.GConstants: GDK_KEY_Left, GDK_KEY_Right, GDK_KEY_Up, GDK_KEY_Down
-using Gtk.GConstants.GdkEventMask: KEY_PRESS, SCROLL
-
 abstract type CairoUnit <: Real end
 
 Base.:+(x::U, y::U) where {U<:CairoUnit} = U(x.val + y.val)
@@ -36,6 +33,7 @@ pixels). See the Cairo documentation.
 struct DeviceUnit <: CairoUnit
     val::Float64
 end
+DeviceUnit(x::DeviceUnit) = x
 
 """
     UserUnit(x)
@@ -92,8 +90,8 @@ end
 XY(x::T, y::T) where {T} = XY{T}(x, y)
 XY(x, y) = XY(promote(x, y)...)
 
-function XY{U}(w::GtkCanvas, evt::Gtk.GdkEvent) where U<:CairoUnit
-    XY{U}(convertunits(U, w, DeviceUnit(evt.x), DeviceUnit(evt.y))...)
+function XY{U}(w::GtkCanvas, x::Float64, y::Float64) where U<:CairoUnit
+    XY{U}(convertunits(U, w, DeviceUnit(x), DeviceUnit(y))...)
 end
 
 function Base.show(io::IO, xy::XY{T}) where T<:CairoUnit
@@ -133,17 +131,31 @@ struct MouseButton{U<:CairoUnit}
     position::XY{U}
     button::UInt32
     clicktype::typeof(BUTTON_PRESS)
-    modifiers::typeof(SHIFT)
+    modifiers::UInt32
+    n_press::Int32
     gtkevent
 end
-function MouseButton(pos::XY{U}, button::Integer, clicktype::Integer, modifiers::Integer, gtkevent=nothing) where U
-    MouseButton{U}(pos, UInt32(button), oftype(BUTTON_PRESS, clicktype), oftype(SHIFT, modifiers), gtkevent)
+function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=1, gtkevent=nothing) where U
+    MouseButton{U}(pos, UInt32(button), clicktype, UInt32(modifiers), n_press, gtkevent)
 end
-function MouseButton{U}(w::GtkCanvas, evt::Gtk.GdkEvent) where U
-    MouseButton{U}(XY{U}(w, evt), evt.button, evt.event_type, evt.state, evt)
+function MouseButton{U}(e::GtkGestureSingle, n_press::Int32, x::Float64, y::Float64, clicktype) where U
+    button = Gtk4.button(e)
+    modifiers = Gtk4.current_event_state(e)
+    w = widget(e)
+    #evt = Gtk4.current_event(e)
+    MouseButton{U}(XY{U}(w, x, y), button, clicktype, UInt32(modifiers), n_press, nothing)
+end
+function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::Float64, clicktype) where U
+    modifiers = Gtk4.current_event_state(e)
+    button = 0
+    if modifiers != 0 && (modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK)
+        button = 1
+    end
+    w = widget(e)
+    MouseButton{U}(XY{U}(w, x, y), button, clicktype, UInt32(modifiers), n_press, nothing)
 end
 function MouseButton{U}() where U
-    MouseButton(XY(U(-1), U(-1)), 0, 0, 0, nothing)
+    MouseButton(XY(U(-1), U(-1)), UInt32(0), Gtk4.EventType(0), UInt32(0), 1, nothing)
 end
 
 """
@@ -168,19 +180,19 @@ struct MouseScroll{U<:CairoUnit}
     direction::typeof(UP)
     modifiers::typeof(SHIFT)
 end
-function MouseScroll(pos::XY{U}, direction::Integer, modifiers::Integer) where U
-    MouseScroll{U}(pos, oftype(UP, direction), oftype(SHIFT, modifiers))
+function MouseScroll(pos::XY{U}, direction, modifiers) where U
+    MouseScroll{U}(pos, direction, modifiers)
 end
-function MouseScroll{U}(w::GtkCanvas, evt::Gtk.GdkEvent) where U
-    MouseScroll{U}(XY{U}(w, evt), evt.direction, evt.state)
+function MouseScroll{U}(e::GtkEventController, direction) where U
+    modifiers = Gtk4.current_event_state(e)
+    evt = Gtk4.current_event(e)
+    b, x, y = Gtk4.position(evt)
+    w = widget(e)
+    MouseScroll{U}(XY{U}(w, x, y), direction, modifiers)
 end
 function MouseScroll{U}() where U
-    MouseScroll(XY(U(-1), U(-1)), 0, 0)
+    MouseScroll(XY(U(-1), U(-1)), UP, Gtk4.ModifierType(0))
 end
-
-# immutable KeyEvent
-#     keyval
-# end
 
 """
     MouseHandler{U<:CairoUnit}
@@ -204,15 +216,41 @@ struct MouseHandler{U<:CairoUnit}
 
     function MouseHandler{U}(canvas::GtkCanvas) where U<:CairoUnit
         pos = XY(U(-1), U(-1))
-        btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
+        btn = MouseButton(pos, 0, BUTTON_PRESS, UInt32(SHIFT))
         scroll = MouseScroll(pos, UP, SHIFT)
         ids = Vector{Culong}(undef, 0)
         handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas)
         # Create the callbacks
-        push!(ids, Gtk.on_signal_button_press(mousedown_cb, canvas, false, handler))
-        push!(ids, Gtk.on_signal_button_release(mouseup_cb, canvas, false, handler))
-        push!(ids, Gtk.on_signal_motion(mousemove_cb, canvas, 0, 0, false, handler))
-        push!(ids, Gtk.on_signal_scroll(mousescroll_cb, canvas, false, handler))
+        g = GtkGestureClick(canvas,1)
+        g3 = GtkGestureClick(canvas,3)
+        gm = GtkEventControllerMotion(canvas)
+        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_VERTICAL, canvas)
+
+        function mousedown_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
+            handler.buttonpress[] = MouseButton{U}(ec, n_press, x, y, BUTTON_PRESS)
+            nothing
+        end
+        function mouseup_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
+            handler.buttonrelease[] = MouseButton{U}(ec, n_press, x, y, BUTTON_RELEASE)
+            nothing
+        end
+        push!(ids, signal_connect(mousedown_cb, g, "pressed"))
+        push!(ids, signal_connect(mouseup_cb, g, "released"))
+        #push!(ids, signal_connect(mousedown_cb, g3, "pressed"))
+        #push!(ids, signal_connect(mouseup_cb, g3, "released"))
+
+        function mousemove_cb(ec::GtkEventControllerMotion, x::Float64, y::Float64)
+            handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY)
+            nothing
+        end
+        push!(ids, signal_connect(mousemove_cb, gm, "motion"))
+
+        function mousescroll_cb(ec::GtkEventControllerScroll, dx::Float64, dy::Float64)
+            handler.scroll[] = MouseScroll{U}(ec, dy > 0 ? Gtk4.ScrollDirection_UP : Gtk4.ScrollDirection_DOWN)
+            nothing
+        end
+        push!(ids, signal_connect(mousescroll_cb, gs, "scroll"))
+
         handler
     end
 end
@@ -221,7 +259,7 @@ end
     GtkObservables.Canvas{U}(w=-1, h=-1, own=true)
 
 Create a canvas for drawing and interaction. The relevant fields are:
-  - `canvas`: the "raw" Gtk widget (from Gtk.jl)
+  - `canvas`: the "raw" Gtk widget (from Gtk4.jl)
   - `mouse`: the [`MouseHandler{U}`](@ref) for this canvas.
 
 See also [`canvas`](@ref).
@@ -233,14 +271,9 @@ struct Canvas{U}
 
     function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true) where U
         gtkcanvas = GtkCanvas(w, h)
-        # Delete the Gtk handlers
-        for id in gtkcanvas.mouse.ids
-            signal_handler_disconnect(gtkcanvas, id)
-        end
-        empty!(gtkcanvas.mouse.ids)
-        # Initialize our own handlers
+        # Initialize handlers
         mouse = MouseHandler{U}(gtkcanvas)
-        set_gtk_property!(gtkcanvas, "is_focus", true)
+        grab_focus(gtkcanvas)
         preserved = []
         canvas = new{U}(gtkcanvas, mouse, preserved)
         gc_preserve(gtkcanvas, canvas)
@@ -248,8 +281,6 @@ struct Canvas{U}
     end
 end
 Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own)
-
-Gtk.destroy(c::Canvas) = destroy(c.widget)
 
 Base.show(io::IO, canvas::Canvas{U}) where U = print(io, "GtkObservables.Canvas{$U}()")
 
@@ -289,7 +320,7 @@ using `do`-block notation:
 This would paint an image-Observable `imgobs` onto the canvas and then
 draw a red circle centered on `xsig`, `ysig`.
 """
-function Gtk.draw(drawfun::F, c::Canvas, signals::Observable...) where F
+function Gtk4.draw(drawfun::F, c::Canvas, signals::Observable...) where F
     @guarded draw(c.widget) do widget
         # This used to have a `yield` in it to allow the Gtk event queue to run,
         # but that caused
@@ -304,7 +335,7 @@ function Gtk.draw(drawfun::F, c::Canvas, signals::Observable...) where F
     push!(c.preserved, drawfunc)
     drawfunc
 end
-function Gtk.draw(drawfun::F, c::Canvas, signal::Observable) where F
+function Gtk4.draw(drawfun::F, c::Canvas, signal::Observable) where F
     @guarded draw(c.widget) do widget
         drawfun(widget, signal[])
     end
@@ -353,7 +384,7 @@ image_surface(img::AbstractArray{C}) where {C<:Colorant} =
     image_surface(convert(Matrix{ARGB32}, img))
 
 
-# Coordiantes could be AbstractFloat without an implied step, so let's
+# Coordinates could be AbstractFloat without an implied step, so let's
 # use intervals instead of ranges
 struct ZoomRegion{T}
     fullview::XY{ClosedInterval{T}}
@@ -499,8 +530,8 @@ You can flip the direction of either pan operation with `xpanflip` and
 """
 function init_pan_scroll(canvas::Canvas{U},
                          zr::Observable{ZoomRegion{T}},
-                         @nospecialize(filter_x::Function) = evt->(evt.modifiers & 0x0f) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
-                         @nospecialize(filter_y::Function) = evt->(evt.modifiers & 0x0f) == 0 && (evt.direction == UP || evt.direction == DOWN),
+                         @nospecialize(filter_x::Function) = evt->(evt.modifiers & SHIFT) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
+                         @nospecialize(filter_y::Function) = evt->(evt.modifiers & SHIFT) == 0 && (evt.direction == UP || evt.direction == DOWN),
                          xpanflip = false,
                          ypanflip  = false) where {U,T}
     enabled = Observable(true)
@@ -608,7 +639,7 @@ zooming with `flip`.
 """
 function init_zoom_scroll(canvas::Canvas{U},
                           zr::Observable{ZoomRegion{T}},
-                          @nospecialize(filter::Function) = evt->(evt.modifiers & 0x0f) == CONTROL,
+                          @nospecialize(filter::Function) = evt->(evt.modifiers & CONTROL) == CONTROL,
                           focus::Symbol = :pointer,
                           factor = 2.0,
                           flip = false) where {U,T}
@@ -616,7 +647,6 @@ function init_zoom_scroll(canvas::Canvas{U},
     enabled = Observable(true)
     zm = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
         if enabled[] && filter(event)
-            # println("zoom scroll: ", event)
             s = factor
             if event.direction == UP
                 s = 1/s
@@ -625,10 +655,8 @@ function init_zoom_scroll(canvas::Canvas{U},
                 s = 1/s
             end
             if focus === :pointer
-                # println("zoom focus: ", event)
                 setindex!(zr, zoom(zr[], s, event.position))
             else
-                # println("zoom center: ", event)
                 setindex!(zr, zoom(zr[], s))
             end
         end
@@ -636,41 +664,8 @@ function init_zoom_scroll(canvas::Canvas{U},
     Dict{String,Any}("enabled"=>enabled, "zoom"=>zm)
 end
 
-scrollpm(direction::Integer) =
+scrollpm(direction) =
     direction == UP ? -1 :
     direction == DOWN ? 1 :
     direction == RIGHT ? 1 :
     direction == LEFT ? -1 : error("Direction ", direction, " not recognized")
-
-##### Callbacks #####
-function mousedown_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
-    evt = unsafe_load(eventp)
-    handler.buttonpress[] = MouseButton{U}(handler.widget, evt)
-    Int32(false)
-end
-function mouseup_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
-    evt = unsafe_load(eventp)
-    handler.buttonrelease[] = MouseButton{U}(handler.widget, evt)
-    Int32(false)
-end
-function mousemove_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
-    evt = unsafe_load(eventp)
-    pos = XY{U}(handler.widget, evt)
-    # This doesn't support multi-button moves well, but those are rare in most GUIs and
-    # users can examine `modifiers` directly.
-    button = 0
-    if evt.state & Gtk.GdkModifierType.BUTTON1 != 0
-        button = 1
-    elseif evt.state & Gtk.GdkModifierType.BUTTON2 != 0
-        button = 2
-    elseif evt.state & Gtk.GdkModifierType.BUTTON3 != 0
-        button = 3
-    end
-    handler.motion[] = MouseButton(pos, button, evt.event_type, evt.state)
-    Int32(false)
-end
-function mousescroll_cb(ptr::Ptr, eventp::Ptr, handler::MouseHandler{U}) where U
-    evt = unsafe_load(eventp)
-    handler.scroll[] = MouseScroll{U}(handler.widget, evt)
-    Int32(false)
-end

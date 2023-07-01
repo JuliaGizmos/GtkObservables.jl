@@ -1,4 +1,4 @@
-using GtkObservables, Gtk.ShortNames, Colors
+using GtkObservables, Gtk4, Colors
 
 # Create some controls
 n = slider(1:10)
@@ -17,22 +17,23 @@ cbhandle = on(dd.mappedsignal) do cb  # assign to variable to prevent garbage co
     cb()
 end
 
-# Lay out the GUI. You can alternatively use `glade` and pass the
+# Lay out the GUI. You can alternatively use `GtkBuilder` XML and pass the
 # widgets to the constructors above (see the implementation of
 # `player` in `extrawidgets.jl` for an example).
-mainwin = Window("GtkObservables")
-vbox = Box(:v)
-hbox = Box(:h)
+mainwin = GtkWindow("GtkObservables", 300, 200)
+vbox = GtkBox(:v)
+hbox = GtkBox(:h)
 push!(vbox, hbox)
 push!(hbox, n)
 push!(hbox, tb)
 push!(vbox, dd)
 push!(vbox, cb)
 push!(mainwin, vbox)
+show(mainwin)
 
 # Create the auxillary window and link its visibility to the checkbox
 cnvs = canvas()
-auxwin = Window(cnvs)
+auxwin = GtkWindow(cnvs)
 showwin = map(cb) do val
     set_gtk_property!(auxwin, "visible", val)
 end
@@ -44,6 +45,3 @@ end
 draw(cnvs) do c
     fill!(c, colorant"orange")
 end
-Gtk.showall(auxwin)
-
-Gtk.showall(mainwin)

@@ -7,7 +7,7 @@ and zoom functionality.
 To illustrate these tools, let's first open a window with a drawing canvas:
 
 ```jldoctest demozoom
-julia> using Gtk.ShortNames, GtkObservables, TestImages
+julia> using GtkObservables, TestImages
 
 julia> win = Window("Image");
 
@@ -77,9 +77,6 @@ by assigning it to a variable we ensure it won't be garbage-collected
 `zr` update).
 
 Now, let's see our image:
-```jldoctest demozoom
-julia> Gtk.showall(win);
-```
 
 ![image1](assets/image1.png)
 

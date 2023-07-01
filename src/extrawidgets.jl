@@ -44,16 +44,16 @@ end
 frame(p::PlayerWithTextbox) = p.frame
 
 function PlayerWithTextbox(builder, index::Observable{Int}, range::UnitRange{Int}, id::Int=1)
-    1 <= id <= 2 || error("only 2 player widgets are defined in player.glade")
+    1 <= id <= 2 || error("only 2 player widgets are defined in player.ui")
     direction = Observable(Int8(0))
-    frame = Gtk.G_.object(builder,"player_frame$id")::Gtk.GtkFrameLeaf
-    scale = slider(range; widget=Gtk.G_.object(builder,"index_scale$id")::Gtk.GtkScaleLeaf, observable=index)
-    entry = textbox(first(range); widget=Gtk.G_.object(builder,"index_entry$id")::Gtk.GtkEntryLeaf, observable=index, range=range)
-    play_back = button(; widget=Gtk.G_.object(builder,"play_back$id")::Gtk.GtkButtonLeaf)
-    step_back = button(; widget=Gtk.G_.object(builder,"step_back$id")::Gtk.GtkButtonLeaf)
-    stop = button(; widget=Gtk.G_.object(builder,"stop$id")::Gtk.GtkButtonLeaf)
-    step_forward = button(; widget=Gtk.G_.object(builder,"step_forward$id")::Gtk.GtkButtonLeaf)
-    play_forward = button(; widget=Gtk.G_.object(builder,"play_forward$id")::Gtk.GtkButtonLeaf)
+    frame = builder["player_frame$id"]::Gtk4.GtkFrame
+    scale = slider(range; widget=builder["index_scale$id"]::Gtk4.GtkScale, observable=index)
+    entry = textbox(first(range); widget=builder["index_entry$id"]::Gtk4.GtkEntry, observable=index, range=range)
+    play_back = button(; widget=builder["play_back$id"]::Gtk4.GtkButton)
+    step_back = button(; widget=builder["step_back$id"]::Gtk4.GtkButton)
+    stop = button(; widget=builder["stop$id"]::Gtk4.GtkButton)
+    step_forward = button(; widget=builder["step_forward$id"]::Gtk4.GtkButton)
+    play_forward = button(; widget=builder["play_forward$id"]::Gtk4.GtkButton)
 
     # Fix up widget properties
     set_gtk_property!(scale.widget, "round-digits", 0)  # glade/gtkbuilder bug that I have to set this here?
@@ -96,7 +96,7 @@ function PlayerWithTextbox(builder, index::Observable{Int}, range::UnitRange{Int
     PlayerWithTextbox(range, direction, frame, scale, entry, play_back, step_back, stop, step_forward, play_forward), preserved
 end
 function PlayerWithTextbox(index::Observable{Int}, range::AbstractUnitRange{<:Integer}, id::Integer=1)
-    builder = GtkBuilder(filename=joinpath(splitdir(@__FILE__)[1], "player.glade"))
+    builder = GtkBuilder(joinpath(splitdir(@__FILE__)[1], "player.ui"))
     PlayerWithTextbox(builder, index, convert(UnitRange{Int}, range), convert(Int, id))
 end
 
@@ -123,19 +123,10 @@ function player(cs::Observable, range::AbstractUnitRange{<:Integer}; style="with
     error("style $style not recognized")
 end
 
-Base.unsafe_convert(::Type{Ptr{Gtk.GLib.GObject}}, p::PlayerWithTextbox) =
-    Base.unsafe_convert(Ptr{Gtk.GLib.GObject}, frame(p))
+Base.unsafe_convert(::Type{Ptr{Gtk4.GLib.GObject}}, p::PlayerWithTextbox) =
+    Base.unsafe_convert(Ptr{Gtk4.GLib.GObject}, frame(p))
 
-function Gtk.destroy(p::PlayerWithTextbox)
-    destroy(p.play_back)
-    destroy(p.step_back)
-    destroy(p.stop)
-    destroy(p.step_forward)
-    destroy(p.play_forward)
-    destroy(p.entry)
-    destroy(p.scale)
-    destroy(frame(p))
-end
+Gtk4.destroy(p::PlayerWithTextbox) = destroy(frame(p))
 
 
 ################# A time widget ##########################
@@ -149,11 +140,11 @@ end
     timewidget(time)
 
 Return a time widget that includes the `Time` and a `GtkFrame` with the hour, minute, and
-second widgets in it. You can specify the specific `GtkFrame` widget (useful when using the `Gtk.Builder` and `glade`). Time is guaranteed to be positive.
+second widgets in it. You can specify the specific `GtkFrame` widget (useful when using `GtkBuilder`). Time is guaranteed to be positive.
 """
 function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     zerotime = Dates.Time(0,0,0) # convenient since we'll use it frequently
-    b = Gtk.GtkBuilder(filename=joinpath(@__DIR__, "time.glade"))
+    b = Gtk4.GtkBuilder(joinpath(@__DIR__, "time.glade"))
     if observable === nothing
         observable = Observable(t1) # this is the input observable, we can push! into it to update the widget
     end
@@ -170,7 +161,7 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     end
     t2 = map(last, H) # here is the final time
     connect_nofire!(observable, t2) # we connect the input and output times so that any update to the resulting time will go into the input observable and actually show on the widgets
-    Sint = Observable(Dates.value(first(S[]))) # necessary for now, until range-like GtkObservables.widgets can accept other ranges.
+    Sint = Observable(Dates.value(first(S[]))) # necessary for now, until range-like Gtk4Observables.widgets can accept other ranges.
     Ssb = spinbutton(-1:60, widget=b["second"], observable=Sint) # allow for values outside the actual range of seconds so that we'll be able to increase and decrease minutes.
     on(Sint; weak=true) do x
         Δ = Dates.Second(x) - first(S[]) # how much did we change by, this should always be ±1
@@ -223,11 +214,11 @@ end
 Return a datetime widget that includes the `DateTime` and a `GtkBox` with the
 year, month, day, hour, minute, and second widgets in it. You can specify the
 specific `SpinButton` widgets for the hour, minute, and second (useful when using
-`Gtk.Builder` and `glade`). Date and time are guaranteed to be positive.
+`GtkBuilder`). Date and time are guaranteed to be positive.
 """
 function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     zerotime = DateTime(0,1,1,0,0,0)
-    b = Gtk.GtkBuilder(filename=joinpath(@__DIR__, "datetime.glade"))
+    b = Gtk4.GtkBuilder(joinpath(@__DIR__, "datetime.glade"))
     # the same logic is applied here as for `timewidget`
     if observable == nothing
         observable = Observable(t1)
