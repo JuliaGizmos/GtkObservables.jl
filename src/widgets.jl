@@ -138,6 +138,7 @@ function slider(range::AbstractRange;
     if widget === nothing
         widget = GtkScale(lowercase(first(orientation)) == 'v',
                           first(range), last(range), step(range))
+        Gtk4.draw_value(widget,true)
         Gtk4.size_request(widget, 200, -1)
     else
         adj = Gtk4.GtkAdjustment(widget)
