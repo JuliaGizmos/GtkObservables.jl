@@ -669,7 +669,7 @@ end
 
 @testset "Layout" begin
     g = GtkGrid()
-    g[1,1] = textbox("hello").widget
+    g[1,1] = textbox("hello").widget  # probably violates the spirit of this test
 end
 
 examplepath = joinpath(dirname(dirname(@__FILE__)), "examples")
