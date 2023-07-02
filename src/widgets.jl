@@ -151,7 +151,7 @@ function slider(range::AbstractRange;
 
     ## widget -> observable
     id = signal_connect(widget, "value_changed") do w
-        observable[] = round(T, defaultgetter(w))
+        observable[] = defaultgetter(w)
     end
 
     ## observable -> widget
@@ -171,7 +171,7 @@ end
 function Base.setindex!(s::Slider, (range,value)::Tuple{AbstractRange, Any})
     first(range) <= value <= last(range) || error("$value is not within the span of $range")
     adj = Gtk4.GtkAdjustment(widget(s))
-    Gtk4.configure!(adj; value = value, lower = first(range), upper = last(range), step_increment = step(range))
+    @idle_add Gtk4.configure!(adj; value = value, lower = first(range), upper = last(range), step_increment = step(range))
 end
 Base.setindex!(s::Slider, range::AbstractRange) = setindex!(s, (range, s[]))
 
@@ -720,6 +720,70 @@ juststring(p::Pair{String}) = p.first
 pairaction(str::AbstractString) = x->nothing
 pairaction(p::Pair{String,F}) where {F<:Function} = p.second
 
+# """
+# radiobuttons: see the help for `dropdown`
+# """
+# radiobuttons(opts; kwargs...) =
+#     Options(:RadioButtons, opts; kwargs...)
+
+# """
+# selection: see the help for `dropdown`
+# """
+# function selection(opts; multi=false, kwargs...)
+#     if multi
+#         options = getoptions(opts)
+#         #observable needs to be of an array of values, not just a single value
+#         observable = Observable(collect(values(options))[1:1])
+#         Options(:SelectMultiple, options; observable=observable, kwargs...)
+#     else
+#         Options(:Select, opts; kwargs...)
+#     end
+# end
+
+# Base.@deprecate select(opts; kwargs...) selection(opts, kwargs...)
+
+# """
+# togglebuttons: see the help for `dropdown`
+# """
+# togglebuttons(opts; kwargs...) =
+#     Options(:ToggleButtons, opts; kwargs...)
+
+# """
+# selection_slider: see the help for `dropdown`
+# If the slider has numeric (<:Real) values, and its observable is updated, it will
+# update to the nearest value from the range/choices provided. To disable this
+# behaviour, so that the widget state will only update if an exact match for
+# observable value is found in the range/choice, use `syncnearest=false`.
+# """
+# selection_slider(opts; kwargs...) = begin
+#     if !haskey(Dict(kwargs), :value_label)
+#         #default to middle of slider
+#         mid_idx = medianidx(opts)
+#         push!(kwargs, (:sel_mid_idx, mid_idx))
+#     end
+#     Options(:SelectionSlider, opts; kwargs...)
+# end
+
+# """
+# `vselection_slider(args...; kwargs...)`
+
+# Shorthand for `selection_slider(args...; orientation="vertical", kwargs...)`
+# """
+# vselection_slider(args...; kwargs...) = selection_slider(args...; orientation="vertical", kwargs...)
+
+# function nearest_val(x, val)
+#     local valbest
+#     local dxbest = typemax(Float64)
+#     for v in x
+#         dx = abs(v-val)
+#         if dx < dxbest
+#             dxbest = dx
+#             valbest = v
+#         end
+#     end
+#     valbest
+# end
+
 ### Output Widgets
 
 ######################## Label #############################
@@ -771,6 +835,74 @@ function label(value;
     end
     Label(observable, widget, preserved)
 end
+
+# export Latex, Progress
+
+# Base.@deprecate html(value; label="")  HTML(value)
+
+# type Latex <: Widget
+#     label::AbstractString
+#     value::AbstractString
+# end
+# latex(label, value::AbstractString) = Latex(label, value)
+# latex(value::AbstractString; label="") = Latex(label, value)
+# latex(value; label="") = Latex(label, mimewritable("application/x-latex", value) ? stringmime("application/x-latex", value) : stringmime("text/latex", value))
+
+# ## # assume we already have Latex
+# ## writemime(io::IO, m::MIME{symbol("application/x-latex")}, l::Latex) =
+# ##     write(io, l.value)
+
+# type Progress <: Widget
+#     label::AbstractString
+#     value::Int
+#     range::AbstractRange
+#     orientation::String
+#     readout::Bool
+#     readout_format::String
+#     continuous_update::Bool
+# end
+
+# progress(args...) = Progress(args...)
+# progress(;label="", value=0, range=0:100, orientation="horizontal",
+#             readout=true, readout_format="d", continuous_update=true) =
+#     Progress(label, value, range, orientation, readout, readout_format, continuous_update)
+
+# # Make a widget out of a domain
+# widget(x::Observable, label="") = x
+# widget(x::Widget, label="") = x
+# widget(x::AbstractRange, label="") = selection_slider(x, label=label)
+# widget(x::AbstractVector, label="") = togglebuttons(x, label=label)
+# widget(x::Associative, label="") = togglebuttons(x, label=label)
+# widget(x::Bool, label="") = checkbox(x, label=label)
+# widget(x::AbstractString, label="") = textbox(x, label=label, typ=AbstractString)
+# widget{T <: Number}(x::T, label="") = textbox(typ=T, value=x, label=label)
+
+# ### Set!
+
+# """
+# `set!(w::Widget, fld::Symbol, val)`
+
+# Set the value of a widget property and update all displayed instances of the
+# widget. If `val` is a `Observable`, then updates to that observable will be reflected in
+# widget instances/views.
+
+# If `fld` is `:value`, `val` is also `push!`ed to `observable(w)`
+# """
+# function set!(w::Widget, fld::Symbol, val)
+#     fld == :value && val != observable(w).value && push!(observable(w), val)
+#     setfield!(w, fld, val)
+#     update_view(w)
+#     w
+# end
+
+# set!(w::Widget, fld::Symbol, valsig::Observable) = begin
+#     map(val -> set!(w, fld, val), valsig) |> preserve
+# end
+
+# set!{T<:Options}(w::T, fld::Symbol, val::Union{Observable,Any}) = begin
+#     fld == :options && (val = getoptions(val))
+#     invoke(set!, (Widget, Symbol, typeof(val)), w, fld, val)
+# end
 
 ########################## SpinButton ########################
 

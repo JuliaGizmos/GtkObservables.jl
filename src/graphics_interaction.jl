@@ -185,6 +185,8 @@ end
 function MouseScroll{U}(e::GtkEventController, direction) where U
     modifiers = Gtk4.current_event_state(e)
     evt = Gtk4.current_event(e)
+    # FIXME: the position returned is NaN -- this event controller can't access the mouse position
+    # So we may need to store the mouse position tracked by an EventControllerMotion
     b, x, y = if evt.handle != C_NULL
         Gtk4.position(evt)
     else
@@ -539,10 +541,8 @@ function init_pan_scroll(canvas::Canvas{U},
         if enabled[]
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
-                # println("pan_x: ", event)
                 setindex!(zr, pan_x(zr[], s))
             elseif filter_y(event)
-                # println("pan_y: ", event)
                 setindex!(zr, pan_y(zr[], s))
             end
         end
