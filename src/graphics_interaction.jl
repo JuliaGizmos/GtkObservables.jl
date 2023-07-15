@@ -655,7 +655,7 @@ function init_zoom_scroll(canvas::Canvas{U},
                 s = 1/s
             end
             if focus === :pointer
-                setindex!(zr, zoom(zr[], s, event.position))
+                setindex!(zr, zoom(zr[], s, canvas.mouse.motion[].position))
             else
                 setindex!(zr, zoom(zr[], s))
             end
