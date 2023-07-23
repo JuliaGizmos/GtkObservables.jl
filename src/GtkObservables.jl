@@ -163,6 +163,6 @@ function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     end
 end
 
-#include("precompile.jl")
+include("precompile.jl")
 
 end # module

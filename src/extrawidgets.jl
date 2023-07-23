@@ -126,9 +126,6 @@ end
 Base.unsafe_convert(::Type{Ptr{Gtk4.GLib.GObject}}, p::PlayerWithTextbox) =
     Base.unsafe_convert(Ptr{Gtk4.GLib.GObject}, frame(p))
 
-Gtk4.destroy(p::PlayerWithTextbox) = destroy(frame(p))
-
-
 ################# A time widget ##########################
 
 struct TimeWidget{T <: Dates.TimeType} <: InputWidget{T}

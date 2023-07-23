@@ -20,7 +20,7 @@ include("tools.jl")
     @test get_gtk_property(l, "label", String) == "Hello"
     l[] = "world"
     @test get_gtk_property(l, "label", String) == "world"
-    @test string(l) == string("Gtk4.GtkLabelLeaf with ", string(observable(l)))
+    @test string(l) == string("GtkLabelLeaf with ", string(observable(l)))
     # Test other elements of the Observables API
     counter = Ref(0)
     ofunc = on(l) do _
@@ -37,7 +37,7 @@ include("tools.jl")
     end
     @test ldouble[] == "and againand again"
     # printing
-    @test string(l) == "Gtk4.GtkLabelLeaf with Observable(\"and again\")"
+    @test string(l) == "GtkLabelLeaf with Observable(\"and again\")"
 
     ## checkbox
     w = GtkWindow("Checkbox")

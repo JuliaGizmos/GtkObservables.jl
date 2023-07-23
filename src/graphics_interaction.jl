@@ -185,8 +185,6 @@ end
 function MouseScroll{U}(e::GtkEventController, direction) where U
     modifiers = Gtk4.current_event_state(e)
     evt = Gtk4.current_event(e)
-    # FIXME: the position returned is NaN -- this event controller can't access the mouse position
-    # So we may need to store the mouse position tracked by an EventControllerMotion
     b, x, y = if evt.handle != C_NULL
         Gtk4.position(evt)
     else
