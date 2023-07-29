@@ -56,7 +56,6 @@ using PrecompileTools
     imgrand = rand(RGB{N0f8}, 100, 100)
     Gtk4.GLib.start_main_loop()
     @compile_workload begin
-        @async println("is loop running? ", Gtk4.GLib.is_loop_running())
         # slider
         sl = slider(1:3)
         sl[] = (1:5, 3)

@@ -2,10 +2,10 @@
 
 Let's create a `slider` object:
 ```jldoctest demo1
-julia> using GtkObservables
+julia> using Gtk4, GtkObservables
 
 julia> sl = slider(1:11)
-Gtk4.GtkScaleLeaf with Observable(6)
+GtkScaleLeaf with Observable(6)
 
 julia> typeof(sl)
 GtkObservables.Slider{Int64}
@@ -20,7 +20,7 @@ julia> observable(sl)
 Observable(6)
 
 julia> typeof(widget(sl))
-Gtk4.GtkScaleLeaf
+GtkScaleLeaf
 ```
 (If you omitted the `typeof`, you'd instead see a long display that encodes the settings of the `GtkScaleLeaf` widget.)
 
@@ -45,12 +45,14 @@ that we used to create `sl`. Now drag the slider all the way to the
 right, and then see what happened to `sl`:
 
 ```@meta
-sl[] =  11    # Updates the value of a Observable. See the Observables.jl docs.
+DocTestSetup = quote
+    sl[] =  11    # Updates the value of a Observable. See the Observables.jl docs.
+end
 ```
 
 ```jldoctest demo1
 julia> sl
-Gtk4.GtkScaleLeaf with Observable(11)
+GtkScaleLeaf with Observable(11)
 ```
 
 You can see that dragging the slider caused the value of the observable to
@@ -70,7 +72,7 @@ value into a textbox:
 
 ```jldoctest demo1
 julia> tb = textbox(Int; observable=observable(sl))
-Gtk.GtkEntryLeaf with Observable{Int64} with 2 listeners. Value:
+GtkEntryLeaf with Observable{Int64} with 2 listeners. Value:
 1
 
 julia> push!(bx, tb);

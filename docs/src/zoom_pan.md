@@ -7,9 +7,9 @@ and zoom functionality.
 To illustrate these tools, let's first open a window with a drawing canvas:
 
 ```jldoctest demozoom
-julia> using GtkObservables, TestImages
+julia> using Gtk4, GtkObservables, TestImages
 
-julia> win = Window("Image");
+julia> win = GtkWindow("Image");
 
 julia> c = canvas(UserUnit);
 
