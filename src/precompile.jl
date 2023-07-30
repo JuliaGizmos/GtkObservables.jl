@@ -1,57 +1,9 @@
 using PrecompileTools
 
 @setup_workload begin
-    function buttoncontroller(c)
-        l = Gtk4.observe_controllers(widget(c))
-        c=findfirst(x->isa(GtkGestureClick, x),l)
-        c===nothing && error("Didn't find a GestureClick controller")
-        c
-    end
-    # function eventbutton(c, event_type, btn, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
-    #     xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
-    #     Gtk.GdkEventButton(event_type,
-    #                        Gtk.gdk_window(widget(c)),
-    #                        Int8(0),
-    #                        UInt32(0),
-    #                        convert(Float64, xd), convert(Float64, yd),
-    #                        convert(Ptr{Float64},C_NULL),
-    #                        UInt32(state),
-    #                        UInt32(btn),
-    #                        C_NULL,
-    #                        0.0, 0.0)
-    # end
-    # function eventscroll(c, direction, x=DeviceUnit(0), y=DeviceUnit(0), state=0)
-    #     xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
-    #     Gtk.GdkEventScroll(Gtk.GdkEventType.SCROLL,
-    #                        Gtk.gdk_window(widget(c)),
-    #                        Int8(0),
-    #                        UInt32(0),
-    #                        convert(Float64, xd), convert(Float64, yd),
-    #                        UInt32(state),
-    #                        direction,
-    #                        convert(Ptr{Float64},C_NULL),
-    #                        0.0, 0.0,
-    #                        0.0, 0.0)
-    # end
-    # function eventmotion(c, btn, x, y)
-    #     xd, yd = GtkObservables.convertunits(DeviceUnit, c, x, y)
-    #     Gtk.GdkEventMotion(Gtk.GdkEventType.MOTION_NOTIFY,
-    #                        Gtk.gdk_window(widget(c)),
-    #                        Int8(0),
-    #                        UInt32(0),
-    #                        convert(Float64, xd), convert(Float64, yd),
-    #                        convert(Ptr{Float64},C_NULL),
-    #                        UInt32(btn),
-    #                        Int16(0),
-    #                        C_NULL,
-    #                        0.0, 0.0)
-    # end
-    #ModType = Gtk.GConstants.GdkModifierType
-    #mask(btn) =
-    #    btn == 1 ? ModType.GDK_BUTTON1_MASK :
-    #    btn == 2 ? ModType.GDK_BUTTON2_MASK :
-    #    btn == 3 ? ModType.GDK_BUTTON3_MASK :
-    #    error(btn, " not recognized")
+    buttoncontroller(c) = Gtk4.find_controller(widget(c), GtkGestureClick)
+    motioncontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
+    scrollcontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
 
     imgrand = rand(RGB{N0f8}, 100, 100)
     Gtk4.GLib.start_main_loop()
@@ -154,14 +106,18 @@ using PrecompileTools
         dtw=nothing
 
         # canvas
+        win=GtkWindow()
         try # if we don't have a display, this might fail?
             for U in (UserUnit, DeviceUnit)
                 c = canvas(U, 100, 100)
+                win[] = widget(c)
+                show(win)
+                sleep(1.0)  # allow canvas to be realized
                 fill!(c, RGB(0, 0, 0))
                 fill!(c, RGBA(1, 1, 1, 1))
                 lastevent = Ref("nothing")
                 press = map(btn->lastevent[] = "press", c.mouse.buttonpress)
-                signal_emit(buttoncontroller(c), "pressed", Nothing, (Cint, Cdouble, Cdouble), 1, 0, 0)
+                signal_emit(buttoncontroller(c), "pressed", Nothing, Cint(1), 0.0, 0.0)
                 xsig, ysig = Observable(20), Observable(20)
                 draw(c, xsig, ysig) do cnvs, x, y
                     copy!(cnvs, imgrand)
@@ -171,9 +127,10 @@ using PrecompileTools
                     circle(ctx, x, y, 5)
                     stroke(ctx)
                 end
-                c = nothing
             end
             c = canvas(UserUnit)
+            win[] = widget(c)
+            sleep(1.0)  # allow canvas to be realized
             zr = Observable(ZoomRegion((1:11, 1:20)))
             zoomrb = init_zoom_rubberband(c, zr)
             zooms = init_zoom_scroll(c, zr)
@@ -183,25 +140,26 @@ using PrecompileTools
                 set_coordinates(cnvs, zr[])
                 fill!(cnvs, colorant"blue")
             end
-            #signal_emit(buttoncontroller(c), "pressed", Nothing, (Cint, Cdouble, Cdouble),
+            #signal_emit(buttoncontroller(c), "pressed", Nothing,
             #            1, UserUnit(5), UserUnit(3), CONTROL))
-            #signal_emit(widget(c), "motion-notify-event", Bool,
-            #            eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
-            #signal_emit(widget(c), "button-release-event", Bool,
-            #            eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
-            #signal_emit(widget(c), "button-press-event", Bool,
-            #            eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
-            #signal_emit(widget(c), "motion-notify-event", Bool,
-            #            eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
+            signal_emit(motioncontroller(c), "motion", Nothing,
+                        convert(Float64, UserUnit(10)), convert(Float64, UserUnit(4)))
+            #signal_emit(buttoncontroller(c), "released", Nothing,
+            #            Cint(1), convert(Float64, UserUnit(10)), convert(Float64, UserUnit(4)))
+            signal_emit(buttoncontroller(c), "pressed", Nothing,
+                        Cint(1), convert(Float64, UserUnit(6)), convert(Float64, UserUnit(3)))
+            signal_emit(motioncontroller(c), "motion", Nothing,
+                        convert(Float64, UserUnit(7)), convert(Float64, UserUnit(2)))
             #signal_emit(widget(c), "button-press-event", Bool,
             #            eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
             #signal_emit(widget(c), "scroll-event", Bool,
             #            eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
-            #signal_emit(widget(c), "scroll-event", Bool,
-            #            eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
-            c = nothing
+            signal_emit(scrollcontroller(c), "scroll", Bool,
+                        convert(Float64, UserUnit(8)), convert(Float64, UserUnit(4)))
         catch
+            @warn("GtkObservables canvas precompile code failure")
         end
+        destroy(win)
     end
 end
 
