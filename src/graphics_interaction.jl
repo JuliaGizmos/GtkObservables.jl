@@ -269,8 +269,8 @@ struct Canvas{U}
     mouse::MouseHandler{U}
     preserved::Vector{Any}
 
-    function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true) where U
-        gtkcanvas = GtkCanvas(w, h)
+    function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true, init_back=false) where U
+        gtkcanvas = GtkCanvas(w, h, init_back)
         # Initialize handlers
         mouse = MouseHandler{U}(gtkcanvas)
         grab_focus(gtkcanvas)
@@ -280,7 +280,7 @@ struct Canvas{U}
         canvas
     end
 end
-Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own)
+Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true, init_back = false) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own, init_back=init_back)
 
 Base.show(io::IO, canvas::Canvas{U}) where U = print(io, "GtkObservables.Canvas{$U}()")
 
@@ -292,8 +292,8 @@ width `w` and height `h`. `U` refers to the units for the canvas (for
 both drawing and reporting mouse pointer positions), see
 [`DeviceUnit`](@ref) and [`UserUnit`](@ref). See also [`GtkObservables.Canvas`](@ref).
 """
-canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1) where {U<:CairoUnit} = Canvas{U}(w, h)
-canvas(w::Integer, h::Integer) = canvas(DeviceUnit, w, h)
+canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1; init_back=false) where {U<:CairoUnit} = Canvas{U}(w, h; init_back=init_back)
+canvas(w::Integer, h::Integer; init_back=false) = canvas(DeviceUnit, w, h; init_back=init_back)
 
 """
     draw(f, c::GtkObservables.Canvas, signals...)

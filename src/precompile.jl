@@ -106,13 +106,9 @@ using PrecompileTools
         dtw=nothing
 
         # canvas
-        win=GtkWindow()
         try # if we don't have a display, this might fail?
             for U in (UserUnit, DeviceUnit)
-                c = canvas(U, 100, 100)
-                win[] = widget(c)
-                show(win)
-                sleep(1.0)  # allow canvas to be realized
+                c = canvas(U, 100, 100; init_back=true)
                 fill!(c, RGB(0, 0, 0))
                 fill!(c, RGBA(1, 1, 1, 1))
                 lastevent = Ref("nothing")
@@ -128,9 +124,7 @@ using PrecompileTools
                     stroke(ctx)
                 end
             end
-            c = canvas(UserUnit)
-            win[] = widget(c)
-            sleep(1.0)  # allow canvas to be realized
+            c = canvas(UserUnit, 100, 100; init_back=true)
             zr = Observable(ZoomRegion((1:11, 1:20)))
             zoomrb = init_zoom_rubberband(c, zr)
             zooms = init_zoom_scroll(c, zr)
@@ -156,10 +150,10 @@ using PrecompileTools
             #            eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
             signal_emit(scrollcontroller(c), "scroll", Bool,
                         convert(Float64, UserUnit(8)), convert(Float64, UserUnit(4)))
+            c=nothing
         catch
             @warn("GtkObservables canvas precompile code failure")
         end
-        destroy(win)
     end
 end
 
