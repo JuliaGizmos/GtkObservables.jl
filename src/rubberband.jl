@@ -65,8 +65,8 @@ function init_zoom_rubberband(canvas::Canvas{U},
     Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 
-zrb_init_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 1 && (btn.modifiers & 0x0f) == UInt32(CONTROL)
-zrb_reset_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && (btn.modifiers & 0x0f) == UInt32(CONTROL)
+zrb_init_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 1 && (btn.modifiers & CONTROL == CONTROL)
+zrb_reset_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && (btn.modifiers & CONTROL == CONTROL)
 
 # For rubberband, we draw the selection region on the front canvas, and repair
 # by copying from the back.

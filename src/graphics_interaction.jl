@@ -131,30 +131,37 @@ struct MouseButton{U<:CairoUnit}
     position::XY{U}
     button::UInt32
     clicktype::typeof(BUTTON_PRESS)
-    modifiers::UInt32
+    modifiers::typeof(SHIFT)
     n_press::Int32
-    gtkevent
 end
-function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=1, gtkevent=nothing) where U
-    MouseButton{U}(pos, UInt32(button), clicktype, UInt32(modifiers), n_press, gtkevent)
+function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=1) where U<:CairoUnit
+    MouseButton{U}(pos, UInt32(button), clicktype, modifiers, n_press)
 end
-function MouseButton{U}(e::GtkGestureSingle, n_press::Int32, x::Float64, y::Float64, clicktype) where U
-    button = Gtk4.current_button(e)
-    modifiers = Gtk4.current_event_state(e)
-    w = widget(e)
-    MouseButton{U}(XY{U}(w, x, y), button, clicktype, UInt32(modifiers), n_press, nothing)
-end
-function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::Float64, clicktype) where U
-    modifiers = Gtk4.current_event_state(e)
-    button = 0
-    if modifiers != 0 && (modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK)
-        button = 1
+
+function _get_button(modifiers, e::GtkEventController)
+    if modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
+        return 1
+    elseif modifiers & Gtk4.ModifierType_BUTTON2_MASK == Gtk4.ModifierType_BUTTON2_MASK
+        return 2
+    elseif modifiers & Gtk4.ModifierType_BUTTON3_MASK == Gtk4.ModifierType_BUTTON3_MASK
+        return 3        
+    else
+        return isa(e, GtkGestureSingle) ? Gtk4.current_button(e) : 0
     end
-    w = widget(e)
-    MouseButton{U}(XY{U}(w, x, y), button, clicktype, UInt32(modifiers), n_press, nothing)
 end
-function MouseButton{U}() where U
-    MouseButton(XY(U(-1), U(-1)), UInt32(0), Gtk4.EventType(0), UInt32(0), 1, nothing)
+
+function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::Float64, clicktype, modifier_ref=nothing) where U<:CairoUnit
+    modifiers = if modifier_ref === nothing
+        Gtk4.current_event_state(e)
+    else
+        modifier_ref[]
+    end
+    button = _get_button(modifiers,e)
+    w = widget(e)
+    MouseButton{U}(XY{U}(w, x, y), UInt32(button), clicktype, modifiers, n_press)
+end
+function MouseButton{U}() where U<:CairoUnit
+    MouseButton(XY(U(-1), U(-1)), UInt32(0), Gtk4.EventType(0), Gtk4.ModifierType(0))
 end
 
 """
@@ -179,11 +186,15 @@ struct MouseScroll{U<:CairoUnit}
     direction::typeof(UP)
     modifiers::typeof(SHIFT)
 end
-function MouseScroll(pos::XY{U}, direction, modifiers) where U
+function MouseScroll(pos::XY{U}, direction, modifiers) where U <: CairoUnit
     MouseScroll{U}(pos, direction, modifiers)
 end
-function MouseScroll{U}(e::GtkEventController, direction) where U
-    modifiers = Gtk4.current_event_state(e)
+function MouseScroll{U}(e::GtkEventController, direction, modifier_ref = nothing) where U <: CairoUnit
+    modifiers = if modifier_ref === nothing
+        Gtk4.current_event_state(e)
+    else
+        modifier_ref[]
+    end
     evt = Gtk4.current_event(e)
     b, x, y = if evt.handle != C_NULL
         Gtk4.position(evt)
@@ -217,9 +228,9 @@ struct MouseHandler{U<:CairoUnit}
     ids::Vector{Culong}   # for disabling any of these callbacks
     widget::GtkCanvas
 
-    function MouseHandler{U}(canvas::GtkCanvas) where U<:CairoUnit
+    function MouseHandler{U}(canvas::GtkCanvas, modifier_ref=nothing) where U<:CairoUnit
         pos = XY(U(-1), U(-1))
-        btn = MouseButton(pos, 0, BUTTON_PRESS, UInt32(SHIFT))
+        btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
         scroll = MouseScroll(pos, UP, SHIFT)
         ids = Vector{Culong}(undef, 0)
         handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas)
@@ -229,25 +240,31 @@ struct MouseHandler{U<:CairoUnit}
         gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_VERTICAL, canvas)
 
         function mousedown_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
-            handler.buttonpress[] = MouseButton{U}(ec, n_press, x, y, BUTTON_PRESS)
+            handler.buttonpress[] = MouseButton{U}(ec, n_press, x, y, BUTTON_PRESS, modifier_ref)
             nothing
         end
         function mouseup_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
-            handler.buttonrelease[] = MouseButton{U}(ec, n_press, x, y, BUTTON_RELEASE)
+            handler.buttonrelease[] = MouseButton{U}(ec, n_press, x, y, BUTTON_RELEASE, modifier_ref)
             nothing
         end
         push!(ids, signal_connect(mousedown_cb, g, "pressed"))
         push!(ids, signal_connect(mouseup_cb, g, "released"))
 
         function mousemove_cb(ec::GtkEventControllerMotion, x::Float64, y::Float64)
-            handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY)
+            handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY, modifier_ref)
             nothing
         end
         push!(ids, signal_connect(mousemove_cb, gm, "motion"))
 
         function mousescroll_cb(ec::GtkEventControllerScroll, dx::Float64, dy::Float64)
-            handler.scroll[] = MouseScroll{U}(ec, dy > 0 ? Gtk4.ScrollDirection_UP : Gtk4.ScrollDirection_DOWN)
-            nothing
+            vert = (abs(dy)>abs(dx))
+            dir = if vert
+                dy > 0 ? Gtk4.ScrollDirection_UP : Gtk4.ScrollDirection_DOWN
+            else
+                dx > 0 ? Gtk4.ScrollDirection_RIGHT : Gtk4.ScrollDirection_LEFT
+            end
+            handler.scroll[] = MouseScroll{U}(ec, dir, modifier_ref)
+            Cint(1)
         end
         push!(ids, signal_connect(mousescroll_cb, gs, "scroll"))
 
@@ -269,10 +286,10 @@ struct Canvas{U}
     mouse::MouseHandler{U}
     preserved::Vector{Any}
 
-    function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true, init_back=false) where U
+    function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true, init_back=false, modifier_ref=nothing) where U
         gtkcanvas = GtkCanvas(w, h, init_back)
         # Initialize handlers
-        mouse = MouseHandler{U}(gtkcanvas)
+        mouse = MouseHandler{U}(gtkcanvas, modifier_ref)
         grab_focus(gtkcanvas)
         preserved = []
         canvas = new{U}(gtkcanvas, mouse, preserved)
@@ -280,7 +297,7 @@ struct Canvas{U}
         canvas
     end
 end
-Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true, init_back = false) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own, init_back=init_back)
+Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true, init_back = false, modifier_ref=nothing) where U = Canvas{U}(Int(w)::Int, Int(h)::Int; own=own, init_back=init_back, modifier_ref=modifier_ref)
 
 Base.show(io::IO, canvas::Canvas{U}) where U = print(io, "GtkObservables.Canvas{$U}()")
 
@@ -292,8 +309,8 @@ width `w` and height `h`. `U` refers to the units for the canvas (for
 both drawing and reporting mouse pointer positions), see
 [`DeviceUnit`](@ref) and [`UserUnit`](@ref). See also [`GtkObservables.Canvas`](@ref).
 """
-canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1; init_back=false) where {U<:CairoUnit} = Canvas{U}(w, h; init_back=init_back)
-canvas(w::Integer, h::Integer; init_back=false) = canvas(DeviceUnit, w, h; init_back=init_back)
+canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1; init_back=false, modifier_ref=nothing) where {U<:CairoUnit} = Canvas{U}(w, h; init_back=init_back, modifier_ref=modifier_ref)
+canvas(w::Integer, h::Integer; init_back=false, modifier_ref=nothing) = canvas(DeviceUnit, w, h; init_back=init_back, modifier_ref=modifier_ref)
 
 """
     draw(f, c::GtkObservables.Canvas, signals...)
@@ -604,7 +621,7 @@ function init_pan_drag(canvas::Canvas{U},
     end
     Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
-pandrag_button(btn) = btn.button == 1 && (btn.modifiers & 0x0f) == 0
+pandrag_button(btn) = btn.button == 1 && (btn.modifiers & CONTROL) == 0
 pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
 
 """

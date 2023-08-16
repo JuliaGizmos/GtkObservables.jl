@@ -10,8 +10,6 @@ using Test
 
 Gtk4.GLib.start_main_loop()
 
-include("tools.jl")
-
 @testset "Widgets" begin
     ## label
     l = label("Hello")
@@ -444,7 +442,8 @@ end
     push!(popupmenu, popupitem)
     popover = GtkPopoverMenu(popupmenu)
     win = GtkWindow()
-    c = canvas()
+    modifier = Ref{Gtk4.ModifierType}(Gtk4.ModifierType_NONE)  # needed to simulate modifier state
+    c = canvas(;modifier_ref = modifier)
     Gtk4.parent(popover, widget(c))
     win[] = widget(c)
     popuptriggered = Ref(false)
@@ -463,8 +462,9 @@ end
     signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
     yield()
     @test !popuptriggered[]
+    modifier[] = Gtk4.ModifierType_BUTTON3_MASK
     signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
-    @test_broken popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
+    @test popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
     Gtk4.destroy(win)
 end
 
@@ -593,7 +593,8 @@ end
 
 @testset "More zoom/pan" begin
     ### Simulate the mouse clicks, etc. to trigger zoom/pan
-    c = canvas(UserUnit)
+    modifier = Ref{Gtk4.ModifierType}(Gtk4.ModifierType_NONE)  # needed to simulate modifier state
+    c = canvas(UserUnit;modifier_ref=modifier)
     win = GtkWindow(c)
     zr = Observable(ZoomRegion((1:11, 1:20)))
     zoomrb = init_zoom_rubberband(c, zr)
@@ -608,13 +609,18 @@ end
 
     # Zoom by rubber band
     # need to simulate control modifier + button 1
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
     ec = Gtk4.find_controller(widget(c), GtkGestureClick)
-    signal_emit(ec, "pressed", Nothing, Int32(1), UserUnit(5).val, UserUnit(3).val)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(5), UserUnit(3))
+    signal_emit(ec, "pressed", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
     ecm = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
-    signal_emit(ecm, "motion", Nothing, UserUnit(10).val, UserUnit(4).val)
-    signal_emit(ec, "released", Nothing, Int32(1), UserUnit(10).val, UserUnit(4).val)
-    @test_broken zr[].currentview.x == 5..10
-    @test_broken zr[].currentview.y == 3..4
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(10), UserUnit(4))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    signal_emit(ec, "released", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=Gtk4.ModifierType_NONE
+    @test zr[].currentview.x == 5..10
+    @test zr[].currentview.y == 3..4
     # Ensure that the rubber band damage has been repaired
     if get(ENV, "CI", nothing) != "true" || !Sys.islinux()
         fn = tempname()
@@ -625,33 +631,42 @@ end
     end
     
     # Pan-drag
-    signal_emit(ec, "pressed", Nothing, Int32(1), UserUnit(6).val, UserUnit(3).val)
-    signal_emit(ecm, "motion", Nothing, UserUnit(7).val, UserUnit(2).val)
-    @test_broken zr[].currentview.x == 4..9
-    @test_broken zr[].currentview.y == 4..5
+    modifier[]=Gtk4.ModifierType_BUTTON1_MASK
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(6), UserUnit(3))
+    signal_emit(ec, "pressed", Nothing, Int32(1), xd.val, yd.val)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(7), UserUnit(2))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    signal_emit(ec, "released", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=Gtk4.ModifierType_NONE
+    @test zr[].currentview.x == 4..9
+    @test zr[].currentview.y == 4..5
     
     # Reset
-    signal_emit(ec, "pressed", Nothing, Int32(2), UserUnit(5).val, UserUnit(4.5).val)
-    @test zr[].currentview.x == 1..20  # we are cheating! The previous simulated interactions didn't work...
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+    signal_emit(ec, "pressed", Nothing, Int32(2), xd.val, yd.val)
+    @test zr[].currentview.x == 1..20
     @test zr[].currentview.y == 1..11
     
     # Zoom-scroll
-    # signal_emit(widget(c), "scroll-event", Bool,
-    #             eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
-    # @test zr[].currentview.x == 4..14
-    # @test zr[].currentview.y == 2..8
-    #
+    modifier[] = Gtk4.ModifierType_NONE
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(8), UserUnit(4))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    modifier[]=CONTROL
+    ecs = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
+    signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
+    @test zr[].currentview.x == 4..14
+    @test zr[].currentview.y == 1..7
+    
     # Pan-scroll
-    # signal_emit(widget(c), "scroll-event", Bool,
-    #             eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
-    # @test zr[].currentview.x == 5..15
-    # @test zr[].currentview.y == 2..8
-    #
-    # signal_emit(widget(c), "scroll-event", Bool,
-    #             eventscroll(c, DOWN, UserUnit(8), UserUnit(4), 0))
-    # @test zr[].currentview.x == 5..15
-    # @test zr[].currentview.y == 3..9
-    #
+    modifier[] = Gtk4.ModifierType_NONE
+    signal_emit(ecs, "scroll", Bool, 1.0, 0.0)
+    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.y == 1..7
+    
+    signal_emit(ecs, "scroll", Bool, 0.0, -1.0)
+    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.y == 2..8
+    
     destroy(win)
 end
 
