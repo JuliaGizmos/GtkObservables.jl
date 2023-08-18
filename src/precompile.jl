@@ -89,10 +89,10 @@ using PrecompileTools
         pb=nothing
 
         # player
-        p = player(1:3)
-        precompile(p)
-        p[] = 2
-        p=nothing
+        #p = player(1:3)
+        #precompile(p)
+        #p[] = 2
+        #p=nothing
 
         # timewidget
         tw = timewidget(Dates.Time(1,1,1))
@@ -124,7 +124,8 @@ using PrecompileTools
                     stroke(ctx)
                 end
             end
-            c = canvas(UserUnit, 100, 100; init_back=true)
+            modifier = Ref{Gtk4.ModifierType}(Gtk4.ModifierType_NONE)  # needed to simulate modifier state
+            c = canvas(UserUnit, 100, 100; init_back=true, modifier_ref=modifier)
             zr = Observable(ZoomRegion((1:11, 1:20)))
             zoomrb = init_zoom_rubberband(c, zr)
             zooms = init_zoom_scroll(c, zr)
@@ -134,20 +135,24 @@ using PrecompileTools
                 set_coordinates(cnvs, zr[])
                 fill!(cnvs, colorant"blue")
             end
-            #signal_emit(buttoncontroller(c), "pressed", Nothing,
-            #            1, UserUnit(5), UserUnit(3), CONTROL))
-            signal_emit(motioncontroller(c), "motion", Nothing,
-                        convert(Float64, UserUnit(10)), convert(Float64, UserUnit(4)))
-            #signal_emit(buttoncontroller(c), "released", Nothing,
-            #            Cint(1), convert(Float64, UserUnit(10)), convert(Float64, UserUnit(4)))
+            modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+            xd, yd = convertunits(DeviceUnit, c, UserUnit(5), UserUnit(3))
+            signal_emit(buttoncontroller(c), "pressed", Nothing, Cint(1), xd.val, yd.val)
+            xd, yd = convertunits(DeviceUnit, c, UserUnit(10), UserUnit(4))
+            signal_emit(motioncontroller(c), "motion", Nothing, xd.val, yd.val)
+            signal_emit(buttoncontroller(c), "released", Nothing, Cint(1), xd.val, yd.val)
+            modifier[]=Gtk4.ModifierType_NONE
             signal_emit(buttoncontroller(c), "pressed", Nothing,
                         Cint(1), convert(Float64, UserUnit(6)), convert(Float64, UserUnit(3)))
             signal_emit(motioncontroller(c), "motion", Nothing,
                         convert(Float64, UserUnit(7)), convert(Float64, UserUnit(2)))
-            #signal_emit(widget(c), "button-press-event", Bool,
-            #            eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
-            #signal_emit(widget(c), "scroll-event", Bool,
-            #            eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
+            modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+            xd, yd = convertunits(DeviceUnit, c, UserUnit(5), UserUnit(3))
+            signal_emit(buttoncontroller(c), "pressed", Nothing, Cint(2), xd.val, yd.val)
+            modifier[]=CONTROL
+            signal_emit(scrollcontroller(c), "scroll", Bool,
+                        convert(Float64, UserUnit(8)), convert(Float64, UserUnit(4)))
+            modifier[]=Gtk4.ModifierType_NONE
             signal_emit(scrollcontroller(c), "scroll", Bool,
                         convert(Float64, UserUnit(8)), convert(Float64, UserUnit(4)))
             c=nothing
@@ -155,10 +160,10 @@ using PrecompileTools
             @warn("GtkObservables canvas precompile code failure")
         end
     end
+    Gtk4.GLib.stop_main_loop(true)
 end
 
 empty!(_ref_dict)  # bandaid until reffing is sorted out
-Gtk4.GLib.stop_main_loop()
 
 GC.gc(true)  # allow canvases to finalize
 sleep(1)     # ensure all timers are closed
