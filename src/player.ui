@@ -1,0 +1,116 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!-- Created with Cambalache 0.8.2 -->
+<interface>
+  <!-- interface-name player.ui -->
+  <requires lib="gtk" version="4.0"/>
+      <object class="GtkFrame" id="player_frame1">
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="GtkBox" id="splitv1">
+            <property name="orientation">vertical</property>
+            <property name="spacing">1</property>
+            <child>
+              <object class="GtkScale" id="index_scale1">
+                <property name="round-digits">6</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="valign">start</property>
+                <child>
+                  <object class="GtkButton" id="play_back1">
+                    <property name="halign">start</property>
+                    <property name="icon-name">go-previous</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="step_back1">
+                    <property name="halign">start</property>
+                    <property name="icon-name">media-skip-backward</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="stop1">
+                    <property name="halign">start</property>
+                    <property name="icon-name">media-playback-stop</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="index_entry1">
+                    <property name="halign">center</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="step_forward1">
+                    <property name="halign">end</property>
+                    <property name="icon-name">media-skip-forward</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="play_forward1">
+                    <property name="halign">end</property>
+                    <property name="icon-name">go-next</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+      <object class="GtkFrame" id="player_frame2">
+        <property name="hexpand">True</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="GtkBox" id="splitv2">
+            <property name="orientation">vertical</property>
+            <property name="spacing">1</property>
+            <child>
+              <object class="GtkScale" id="index_scale2">
+                <property name="round-digits">6</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="valign">start</property>
+                <child>
+                  <object class="GtkButton" id="play_back2">
+                    <property name="halign">start</property>
+                    <property name="icon-name">go-previous</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="step_back2">
+                    <property name="halign">start</property>
+                    <property name="icon-name">media-skip-backward</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="stop2">
+                    <property name="halign">start</property>
+                    <property name="icon-name">media-playback-stop</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="index_entry2">
+                    <property name="halign">center</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="step_forward2">
+                    <property name="halign">end</property>
+                    <property name="icon-name">media-skip-forward</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="play_forward2">
+                    <property name="halign">end</property>
+                    <property name="icon-name">go-next</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+</interface>

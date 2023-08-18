@@ -9,10 +9,9 @@ Let's begin by creating a window with a canvas in it:
 
 ```julia
 using GtkObservables, Colors
-using GtkObservables.Gtk
-using GtkObservables.Gtk.ShortNames
+using GtkObservables.Gtk4
 
-win = Window("Drawing")
+win = GtkWindow("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates
 push!(win, c)
 ```
@@ -34,7 +33,7 @@ We're going to set this up so that a new line is started when the user
 clicks with the left mouse button; when the user releases the mouse
 button, the line is finished and added to a list of previously-drawn
 lines. Consequently, we need a place to store user data. We'll use
-Signals, so that our Canvas will be notified when there is new
+Observables, so that our Canvas will be notified when there is new
 material to draw:
 
 ```julia
@@ -116,9 +115,9 @@ by monitoring `lines` from the command line by clicking, dragging, and
 releasing.
 
 However, it's much more fun to see it in action. Let's set up a
-[`draw`](http://juliagraphics.github.io/Gtk.jl/latest/manual/canvas.html)
+[`draw`](http://juliagtk.github.io/Gtk4.jl/dev/manual/canvas.html)
 method for the canvas, which will be called (1) whenever the window
-resizes (this is arranged by Gtk.jl), or (2) whenever `lines` or
+resizes (this is arranged by Gtk4.jl), or (2) whenever `lines` or
 `newline` update (because we supply them as arguments to the `draw`
 function):
 
@@ -127,7 +126,7 @@ function):
 redraw = draw(c, lines, newline) do cnvs, lns, newl  # the function body takes 3 arguments
     fill!(cnvs, colorant"white")   # set the background to white
     set_coordinates(cnvs, BoundingBox(0, 1, 0, 1))  # set coordinates to 0..1 along each axis
-    ctx = Gtk.getgc(cnvs)   # gets the "graphics context" object (see Cairo/Gtk)
+    ctx = Gtk4.getgc(cnvs)   # gets the "graphics context" object (see Cairo/Gtk)
     for l in lns
         drawline(ctx, l, colorant"blue")  # draw old lines in blue
     end
@@ -148,13 +147,13 @@ end
 ```
 
 **Important note:** Only modify the canvas inside the `draw` function, and pass
-all observables that you want to consume as additional arguments (the example shows 
+all observables that you want to consume as additional arguments (the example shows
 three, but you may pass as few or as many as you wish). Otherwise, you
 may find the rendering behaves unexpectedly.
 
 A lot of these commands come from Cairo.jl and/or Graphics.jl.
 
-Our application is done! (But don't forget to `showall(win)`.) Here's a
+Our application is done! Here's a
 picture of me in the middle of a very fancy drawing:
 
 ![drawing](assets/drawing.png)

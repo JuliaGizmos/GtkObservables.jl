@@ -1,6 +1,6 @@
-using Gtk.ShortNames, GtkObservables, Graphics, Colors
+using Gtk4, GtkObservables, Colors, Observables
 
-win = Window("Drawing")
+win = GtkWindow("Drawing")
 c = canvas(UserUnit)       # create a canvas with user-specified coordinates
 push!(win, c)
 
@@ -55,5 +55,3 @@ function drawline(ctx, l, color)
     end
     stroke(ctx)
 end
-
-Gtk.showall(win)

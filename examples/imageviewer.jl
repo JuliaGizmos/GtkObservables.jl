@@ -1,4 +1,4 @@
-using TestImages, GtkObservables, Gtk.ShortNames
+using TestImages, GtkObservables, Gtk4
 
 img = testimage("lighthouse")
 
@@ -6,7 +6,7 @@ img = testimage("lighthouse")
 # UserUnit: we'll use the indices of the image as canvas coordinates
 # This makes it easy to relate the position of mouse-clicks to the image
 c = canvas(UserUnit)
-win = Window(c)
+win = GtkWindow(c)
 
 ## Region-of-interest selection
 zr = Observable(ZoomRegion(img))
@@ -33,6 +33,3 @@ redraw = draw(c, imgroi) do cnvs, image
     # zoom in further, we select the correct region.
     set_coordinates(cnvs, zr[])
 end
-
-## Don't forget this!
-Gtk.showall(win)

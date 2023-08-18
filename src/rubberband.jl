@@ -65,8 +65,8 @@ function init_zoom_rubberband(canvas::Canvas{U},
     Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 
-zrb_init_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && (btn.modifiers & 0x0f) == CONTROL
-zrb_reset_default(btn) = btn.button == 1 && btn.clicktype == DOUBLE_BUTTON_PRESS && (btn.modifiers & 0x0f) == CONTROL
+zrb_init_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 1 && (btn.modifiers & CONTROL == CONTROL)
+zrb_reset_default(btn) = btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && (btn.modifiers & CONTROL == CONTROL)
 
 # For rubberband, we draw the selection region on the front canvas, and repair
 # by copying from the back.
@@ -128,7 +128,7 @@ function rubberband_move(c::Canvas, rb::RubberBand, btn, ctxcopy)
     # Draw the new rubberband
     rb.pos2 = btn.position
     rb_draw(r, rb)
-    reveal(c, false)
+    reveal(c)
     nothing
 end
 
@@ -139,7 +139,7 @@ function rubberband_stop(c::GtkObservables.Canvas, rb::RubberBand, btn, ctxcopy,
     r = getgc(c)
     rb_set(r, rb)
     rb_erase(r, rb, ctxcopy)
-    reveal(c, false)
+    reveal(c)
     pos = btn.position
     x, y = pos.x, pos.y
     x1, y1 = rb.pos1.x, rb.pos1.y

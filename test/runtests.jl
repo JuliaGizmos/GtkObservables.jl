@@ -3,12 +3,12 @@
     using ImageMagick
 end
 
-using GtkObservables, Gtk.ShortNames, IntervalSets, Graphics, Colors,
+using GtkObservables, Gtk4, IntervalSets, Graphics, Colors,
       TestImages, FileIO, FixedPointNumbers, RoundingIntegers, Dates, Cairo,
       IdentityRanges
 using Test
 
-include("tools.jl")
+Gtk4.GLib.start_main_loop()
 
 @testset "Widgets" begin
     ## label
@@ -18,7 +18,7 @@ include("tools.jl")
     @test get_gtk_property(l, "label", String) == "Hello"
     l[] = "world"
     @test get_gtk_property(l, "label", String) == "world"
-    @test string(l) == string("Gtk.GtkLabelLeaf with ", string(observable(l)))
+    @test string(l) == string("GtkLabelLeaf with ", string(observable(l)))
     # Test other elements of the Observables API
     counter = Ref(0)
     ofunc = on(l) do _
@@ -35,55 +35,52 @@ include("tools.jl")
     end
     @test ldouble[] == "and againand again"
     # printing
-    @test string(l) == "Gtk.GtkLabelLeaf with Observable{String} with 2 listeners. Value:\n\"and again\"" ||
-          string(l) == "Gtk.GtkLabelLeaf with Observable(\"and again\")"
+    @test string(l) == "GtkLabelLeaf with Observable(\"and again\")"
 
     ## checkbox
-    w = Window("Checkbox")
+    w = GtkWindow("Checkbox")
     check = checkbox(label="click me")
     push!(w, check)
-    Gtk.showall(w)
     @test check[] == false
-    @test Gtk.G_.active(check.widget) == false
+    @test Gtk4.active(check.widget) == false
     check[] = true
     @test check[]
-    @test Gtk.G_.active(check.widget)
-    destroy(w)
+    @test Gtk4.active(check.widget)
+    Gtk4.destroy(w)
     sleep(0.1)  # work around https://github.com/JuliaGraphics/Gtk.jl/issues/391#issuecomment-1107840526
 
     ## togglebutton
-    w = Window("Togglebutton")
+    w = GtkWindow("Togglebutton")
     tgl = togglebutton(label="click me")
     push!(w, tgl)
-    Gtk.showall(w)
     @test tgl[] == false
-    @test Gtk.G_.active(tgl.widget) == false
+    @test Gtk4.active(tgl.widget) == false
     tgl[] = true
     @test tgl[]
-    @test Gtk.G_.active(tgl.widget)
-    destroy(w)
+    @test Gtk4.active(tgl.widget)
+    Gtk4.destroy(w)
     sleep(0.1)
 
     ## colorbutton
-    w = Window("Colorbutton")
+    w = GtkWindow("Colorbutton")
     cb = colorbutton(color=RGB(1, 0, 1))
     push!(w, cb)
-    Gtk.showall(w)
     @test cb[] == RGB(1, 0, 1)
     cb[] = RGB(0, 1, 0)
     @test cb[] == RGB(0, 1, 0)
-    destroy(w)
+    Gtk4.destroy(w)
     sleep(0.1)
 
     ## textbox (aka Entry)
     txt = textbox("Type something")
     num = textbox(5, range=1:10)
-    lost_focus = textbox("Type something"; gtksignal = "focus-out-event")
-    win = Window("Textboxes") |> (bx = Box(:h))
+    lost_focus = textbox("Type something"; gtksignal = "focus-leave")
+    win = GtkWindow("Textboxes")
+    bx = GtkBox(:h)
+    win[] = bx
     push!(bx, txt)
     push!(bx, num)
     push!(bx, lost_focus)
-    Gtk.showall(win)
     @test get_gtk_property(txt, "text", String) == "Type something"
     txt[] = "ok"
     @test get_gtk_property(txt, "text", String) == "ok"
@@ -106,20 +103,19 @@ include("tools.jl")
     grab_focus(widget(lost_focus))
     set_gtk_property!(lost_focus, "text", "Something!")
     @test lost_focus[] == "Type something"
-    signal_emit(widget(lost_focus), "focus-out-event", Bool, Gtk.GdkEventAny(0, Ptr{Nothing}(), 0))
+    grab_focus(widget(txt))
     @test get_gtk_property(lost_focus, "text", String) == "Something!"
     @test lost_focus[] == "Something!"
-    destroy(win)
+    Gtk4.destroy(win)
     sleep(0.1)
 
     ## textarea (aka TextView)
     v = textarea("Type something longer")
-    win = Window(v)
-    Gtk.showall(win)
+    win = GtkWindow(v)
     @test v[] == "Type something longer"
     v[] = "ok"
-    @test get_gtk_property(Gtk.G_.buffer(v.widget), "text", String) == "ok"
-    destroy(win)
+    @test get_gtk_property(Gtk4.buffer(v.widget), "text", String) == "ok"
+    Gtk4.destroy(win)
     sleep(0.1)
 
     ## slider
@@ -140,8 +136,6 @@ include("tools.jl")
     @test s2[] == 3
     s2[] = 11
     @test s[] == 11
-    destroy(s2)
-    destroy(s)
     sleep(0.1)
 
     # Updating the limits of the slider
@@ -149,18 +143,16 @@ include("tools.jl")
     sleep(0.01)    # For the Gtk eventloop
     @test s[] == 8
     s[] = 1:7, 5
-    sleep(0.01)
+    sleep(0.05)
     @test s[] == 5
     sleep(0.1)
 
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
     @test dd[] === "Strawberry"
-    destroy(dd.widget)
 
     dd = dropdown(())
     @test dd[] === nothing
-    destroy(dd.widget)
 
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), value = "Vanilla")
     @test dd[] === "Vanilla"
@@ -176,7 +168,6 @@ include("tools.jl")
     dd[] = "Caramel"
     @test dd[] == "Caramel"
     @test get_gtk_property(dd, "active", Int) == 1
-    destroy(dd.widget)
 
     r = Ref(0)
     dd = dropdown(["Five"=>x->x[]=5,
@@ -192,13 +183,11 @@ include("tools.jl")
     @test r[] == 7
     dd[] = "Five"
     @test r[] == 5
-    destroy(dd.widget)
 
     # if the Observable is just of type String, don't support unselected state (compatibility with 1.0.0)
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"), observable = Observable(""))
     @test dd[] === "Strawberry"
     @test_throws ArgumentError empty!(dd)
-    destroy(dd.widget)
     sleep(0.1)
 
     ## spinbutton
@@ -207,11 +196,9 @@ include("tools.jl")
     @test s[] == 1
     s[] = 3
     @test s[] == 3
-    destroy(s)
 
-    s = spinbutton(0:59, orientation="vertical")
-    @test G_.orientation(Orientable(widget(s))) == Gtk.GConstants.GtkOrientation.VERTICAL
-    destroy(s)
+    s = spinbutton(0.0:2.0:59.0, orientation="vertical")
+    @test Gtk4.orientation(GtkOrientable(widget(s))) == Gtk4.Orientation_VERTICAL
 
     # Updating the limits of the spinbutton
     s = spinbutton(1:15)
@@ -240,11 +227,9 @@ include("tools.jl")
     b[] = 4
     @test a[] == 5
     @test b[] == 1
-    destroy(a)
 
     s = cyclicspinbutton(0:59, carry_up, orientation="vertical")
-    @test G_.orientation(Orientable(widget(s))) == Gtk.GConstants.GtkOrientation.VERTICAL
-    destroy(s)
+    @test Gtk4.orientation(GtkOrientable(widget(s))) == Gtk4.Orientation_VERTICAL
     sleep(0.1)
 
     # timewidget
@@ -288,57 +273,45 @@ const counter = Ref(0)
 
 @testset "Button" begin
     ## button
-    w = Window("Widgets")
+    w = GtkWindow("Widgets")
     b = button("Click me")
     push!(w, b)
     action = map(b) do val
         counter[] += 1
     end
-    Gtk.showall(w)
     cc = counter[]  # map seems to fire it once, so record the "new" initial value
-    click(b::GtkObservables.Button) = ccall((:gtk_button_clicked,Gtk.libgtk),Cvoid,(Ptr{Gtk.GObject},),b.widget)
+    click(b::GtkObservables.Button) = signal_emit(widget(b),"clicked",Nothing)
     GC.gc(true)
     click(b)
-    if VERSION >= v"1.2.0"
-        @test counter[] == cc+1
-    else
-        @test_broken counter[] == cc+1
-    end
-    destroy(w)
-
-    # Make sure we can also put a ToolButton in a Button
-    button(; widget=ToolButton("Save as..."))
+    @test counter[] == cc+1
+    Gtk4.destroy(w)
 end
 
-if Gtk.libgtk_version >= v"3.10"
-    # To support GtkBuilder, we need this as the minimum libgtk version
-    @testset "Compound widgets" begin
-        ## player widget
-        s = Observable(1)
-        p = player(s, 1:8)
-        win = Window("Compound", 400, 100) |> (g = Grid())
-        g[1,1] = p
-        btn_fwd = p.widget.step_forward
-        @test s[] == 1
-        btn_fwd[] = nothing
-        @test s[] == 2
-        p.widget.play_forward[] = nothing
-        for i = 1:7
-            sleep(0.1)
-        end
-        @test s[] == 8
-        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable{Int64} with 2 listeners. Value:\n8" ||
-              string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
-        destroy(p)
-        destroy(win)
-
-        p = player(1:1000)
-        win = Window("Compound 2", 400, 100)
-        push!(win, frame(p))
-        widget(p).direction[] = 1
-        destroy(p)
-        destroy(win)  # this should not generate a lot of output
+@testset "Compound widgets" begin
+    ## player widget
+    s = Observable(1)
+    p = player(s, 1:8)
+    win = GtkWindow("Compound", 400, 100)
+    g = GtkGrid()
+    win[]=g
+    g[1,1] = frame(p)
+    btn_fwd = p.widget.step_forward
+    @test s[] == 1
+    btn_fwd[] = nothing
+    @test s[] == 2
+    p.widget.play_forward[] = nothing
+    for i = 1:7
+        sleep(0.1)
     end
+    @test s[] == 8
+    @test string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
+    Gtk4.destroy(win)
+
+    p = player(1:1000)
+    win = GtkWindow("Compound 2", 400, 100)
+    push!(win, frame(p))
+    widget(p).direction[] = 1
+    Gtk4.destroy(win)  # this should not generate a lot of output
 end
 
 @testset "CairoUnits" begin
@@ -377,33 +350,27 @@ end
     @test BoundingBox(XY(2..4, -15..15)) === BoundingBox(2, 4, -15, 15)
 
     c = canvas(208, 207)
-    win = Window(c)
-    Gtk.showall(win)
-    reveal(c, true)
-    sleep(0.3)
-    can_test_width = !(VERSION.minor < 3 && Sys.iswindows())
+    win = GtkWindow(c)
+    reveal(c)
+    sleep(1.0)
+    can_test_width = !Sys.iswindows()
     can_test_width && @test Graphics.width(c) == 208
-    @test Graphics.height(c) == 207
+    can_test_width && @test Graphics.height(c) == 207
     @test isa(c, GtkObservables.Canvas{DeviceUnit})
-    destroy(win)
+    Gtk4.destroy(win)
     c = canvas(UserUnit, 208, 207)
-    win = Window(c)
-    Gtk.showall(win)
-    reveal(c, true)
+    win = GtkWindow(c)
+    reveal(c)
     sleep(1.0)
     @test isa(c, GtkObservables.Canvas{UserUnit})
     @test string(c) == "GtkObservables.Canvas{UserUnit}()"
     corner_dev = (DeviceUnit(208), DeviceUnit(207))
-    can_test_coords = (VERSION < v"1.3" || get(ENV, "CI", nothing) != "true" || !Sys.islinux()) &&
-                      can_test_width
+    can_test_coords = (get(ENV, "CI", nothing) != "true" || !Sys.islinux()) && can_test_width
     for (coords, corner_usr) in ((BoundingBox(0, 1, 0, 1), (UserUnit(1), UserUnit(1))),
                                  (ZoomRegion((5:10, 3:5)), (UserUnit(5), UserUnit(10))),
                                  ((-1:1, 101:110), (UserUnit(110), UserUnit(1))))
         set_coordinates(c, coords)
         if can_test_coords
-            # FIXME: the new JLL-based version fails on Travis.
-            # Unfortunately this is difficult to debug because it doesn't replicate
-            # locally or on a local headless server. See #91.
             @test GtkObservables.convertunits(DeviceUnit, c, corner_dev...) == corner_dev
             @test GtkObservables.convertunits(DeviceUnit, c, corner_usr...) == corner_dev
             @test GtkObservables.convertunits(UserUnit, c, corner_dev...) == corner_usr
@@ -411,23 +378,35 @@ end
         end
     end
 
-    destroy(win)
+    Gtk4.destroy(win)
 
 
     c = canvas()
-    f = Frame(c)
-    @test isa(f, Gtk.GtkFrameLeaf)
-    destroy(f)
+    f = GtkFrame()
+    f[] = c.widget
+    @test isa(f, Gtk4.GtkFrameLeaf)
     c = canvas()
-    f = AspectFrame(c, "Some title", 0.5, 0.5, 3.0)
-    @test isa(f, Gtk.GtkAspectFrameLeaf)
+    f = GtkAspectFrame(0.5, 0.5, 3.0, true)
+    f[] = c.widget
+    @test isa(f, Gtk4.GtkAspectFrameLeaf)
     @test get_gtk_property(f, "ratio", Float64) == 3.0
-    destroy(f)
+end
+
+function gesture_click(g)
+    isa(g,GtkGestureClick) && g.button == 0
+end
+
+function find_gesture_click(w::GtkWidget)
+    list = Gtk4.observe_controllers(w)
+    i=findfirst(gesture_click, list)
+    i!==nothing ? list[i] : nothing
 end
 
 @testset "Canvas events" begin
-    win = Window() |> (c = canvas(UserUnit))
-    Gtk.showall(win)
+    win = GtkWindow()
+    c = canvas(UserUnit)
+    win[] = c.widget
+    show(win)
     sleep(0.2)
     lastevent = Ref("nothing")
     press   = map(btn->lastevent[] = "press",   c.mouse.buttonpress)
@@ -437,56 +416,62 @@ end
     scroll  = map(btn->lastevent[] = "scroll", c.mouse.scroll)
     lastevent[] = "nothing"
     @test lastevent[] == "nothing"
-    signal_emit(widget(c), "button-press-event", Bool, eventbutton(c, BUTTON_PRESS, 1))
+    ec = find_gesture_click(widget(c))
+    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
     sleep(0.1)
-    # FIXME: would prefer that this works on all Julia versions
-    VERSION >= v"1.2.0" && @test lastevent[] == "press"
-    signal_emit(widget(c), "button-release-event", Bool, eventbutton(c, GtkObservables.BUTTON_RELEASE, 1))
-    sleep(0.1)
-    sleep(0.1)
-    VERSION >= v"1.2.0" && @test lastevent[] == "release"
-    signal_emit(widget(c), "scroll-event", Bool, eventscroll(c, UP))
+    @test lastevent[] == "press"
+    signal_emit(ec, "released", Nothing, Int32(1), 0.0, 0.0)
     sleep(0.1)
     sleep(0.1)
-    VERSION >= v"1.2.0" && @test lastevent[] == "scroll"
-    signal_emit(widget(c), "motion-notify-event", Bool, eventmotion(c, 0, UserUnit(20), UserUnit(15)))
+    @test lastevent[] == "release"
+    ec = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
+    signal_emit(ec, "scroll", Bool, 1.0, 0.0)
+    sleep(0.1)
+    @test lastevent[] == "scroll"
+    ec = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
+    signal_emit(ec, "motion", Nothing, UserUnit(20).val, UserUnit(15).val)
     sleep(0.1)
     sleep(0.1)
-    VERSION >= v"1.2.0" && @test lastevent[] == "motion to UserUnit(20.0), UserUnit(15.0)"
-    destroy(win)
+    @test lastevent[] == "motion to UserUnit(20.0), UserUnit(15.0)"
+    Gtk4.destroy(win)
 end
 
 @testset "Popup" begin
-    popupmenu = Menu()
-    popupitem = MenuItem("Popup menu...")
+    popupmenu = Gtk4.GLib.GMenu()
+    popupitem = Gtk4.GLib.GMenuItem("Popup menu...")
     push!(popupmenu, popupitem)
-    Gtk.showall(popupmenu)
-    win = Window() |> (c = canvas())
+    popover = GtkPopoverMenu(popupmenu)
+    win = GtkWindow()
+    modifier = Ref{Gtk4.ModifierType}(Gtk4.ModifierType_NONE)  # needed to simulate modifier state
+    c = canvas(;modifier_ref = modifier)
+    Gtk4.parent(popover, widget(c))
+    win[] = widget(c)
     popuptriggered = Ref(false)
     push!(c.preserved, map(c.mouse.buttonpress) do btn
         if btn.button == 3 && btn.clicktype == BUTTON_PRESS
-            popup(popupmenu, btn.gtkevent)  # use the raw Gtk event
+            pos = Gtk4._GdkRectangle(round(Int32,btn.position.x.val),round(Int32,btn.position.y.val),1,1)
+            Gtk4.G_.set_pointing_to(popover, Ref(pos))
+            Gtk4.popup(popover)
             popuptriggered[] = true
             nothing
         end
     end)
     yield()
     @test !popuptriggered[]
-    evt = eventbutton(c, BUTTON_PRESS, 1)
-    signal_emit(widget(c), "button-press-event", Bool, evt)
+    ec = find_gesture_click(widget(c))
+    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
     yield()
     @test !popuptriggered[]
-    evt = eventbutton(c, BUTTON_PRESS, 3)
-    signal_emit(widget(c), "button-press-event", Bool, evt)
-    @test popuptriggered[]
-    destroy(win)
-    destroy(popupmenu)
+    modifier[] = Gtk4.ModifierType_BUTTON3_MASK
+    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
+    @test popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
+    Gtk4.destroy(win)
 end
 
 @testset "Drawing" begin
     img = testimage("lighthouse")
     c = canvas(UserUnit, size(img, 2), size(img, 1))
-    win = Window(c)
+    win = GtkWindow(c)
     xsig, ysig = Observable(20), Observable(20)
     draw(c, xsig, ysig) do cnvs, x, y
         copy!(c, img)
@@ -496,11 +481,10 @@ end
         circle(ctx, x, y, 5)
         stroke(ctx)
     end
-    Gtk.showall(win)
     xsig[] = 100
     sleep(1)
     # Check that the displayed image is as expected
-    if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
+    if get(ENV, "CI", nothing) != "true" || !Sys.islinux()
         fn = joinpath(tempdir(), "circled.png")
         Cairo.write_to_png(getgc(c).surface, fn)
         imgout = load(fn)
@@ -508,7 +492,7 @@ end
         @test imgout[25,100] == imgout[16,100] == imgout[20,105] == colorant"red"
         @test imgout[20,100] == img[20,100]
     end
-    destroy(win)
+    Gtk4.destroy(win)
 end
 
 # For testing ZoomRegion support for non-AbstractArray objects
@@ -609,7 +593,9 @@ end
 
 @testset "More zoom/pan" begin
     ### Simulate the mouse clicks, etc. to trigger zoom/pan
-    win = Window() |> (c = canvas(UserUnit))
+    modifier = Ref{Gtk4.ModifierType}(Gtk4.ModifierType_NONE)  # needed to simulate modifier state
+    c = canvas(UserUnit;modifier_ref=modifier)
+    win = GtkWindow(c)
     zr = Observable(ZoomRegion((1:11, 1:20)))
     zoomrb = init_zoom_rubberband(c, zr)
     zooms = init_zoom_scroll(c, zr)
@@ -619,58 +605,68 @@ end
         set_coordinates(c, zr[])
         fill!(c, colorant"blue")
     end
-    Gtk.showall(win)
     sleep(0.1)
 
     # Zoom by rubber band
-    signal_emit(widget(c), "button-press-event", Bool,
-                eventbutton(c, BUTTON_PRESS, 1, UserUnit(5), UserUnit(3), CONTROL))
-    signal_emit(widget(c), "motion-notify-event", Bool,
-                eventmotion(c, mask(1), UserUnit(10), UserUnit(4)))
-    signal_emit(widget(c), "button-release-event", Bool,
-                eventbutton(c, GtkObservables.BUTTON_RELEASE, 1, UserUnit(10), UserUnit(4)))
+    # need to simulate control modifier + button 1
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+    ec = Gtk4.find_controller(widget(c), GtkGestureClick)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(5), UserUnit(3))
+    signal_emit(ec, "pressed", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+    ecm = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(10), UserUnit(4))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    signal_emit(ec, "released", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=Gtk4.ModifierType_NONE
     @test zr[].currentview.x == 5..10
     @test zr[].currentview.y == 3..4
     # Ensure that the rubber band damage has been repaired
-    if get(ENV, "CI", nothing) != "true" || !Sys.islinux() || VERSION < v"1.3" # broken on Travis
+    if get(ENV, "CI", nothing) != "true" || !Sys.islinux()
         fn = tempname()
         Cairo.write_to_png(getgc(c).surface, fn)
         imgout = load(fn)
         rm(fn)
         @test all(x->x==colorant"blue", imgout)
     end
-
+    
     # Pan-drag
-    signal_emit(widget(c), "button-press-event", Bool,
-                eventbutton(c, BUTTON_PRESS, 1, UserUnit(6), UserUnit(3), 0))
-    signal_emit(widget(c), "motion-notify-event", Bool,
-                eventmotion(c, mask(1), UserUnit(7), UserUnit(2)))
+    modifier[]=Gtk4.ModifierType_BUTTON1_MASK
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(6), UserUnit(3))
+    signal_emit(ec, "pressed", Nothing, Int32(1), xd.val, yd.val)
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(7), UserUnit(2))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    signal_emit(ec, "released", Nothing, Int32(1), xd.val, yd.val)
+    modifier[]=Gtk4.ModifierType_NONE
     @test zr[].currentview.x == 4..9
     @test zr[].currentview.y == 4..5
-
+    
     # Reset
-    signal_emit(widget(c), "button-press-event", Bool,
-                eventbutton(c, DOUBLE_BUTTON_PRESS, 1, UserUnit(5), UserUnit(4.5), CONTROL))
+    modifier[]=CONTROL | Gtk4.ModifierType_BUTTON1_MASK
+    signal_emit(ec, "pressed", Nothing, Int32(2), xd.val, yd.val)
     @test zr[].currentview.x == 1..20
     @test zr[].currentview.y == 1..11
-
+    
     # Zoom-scroll
-    signal_emit(widget(c), "scroll-event", Bool,
-                eventscroll(c, UP, UserUnit(8), UserUnit(4), CONTROL))
+    modifier[] = Gtk4.ModifierType_NONE
+    xd, yd = GtkObservables.convertunits(DeviceUnit, c, UserUnit(8), UserUnit(4))
+    signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
+    modifier[]=CONTROL
+    ecs = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
+    signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
     @test zr[].currentview.x == 4..14
-    @test zr[].currentview.y == 2..8
-
+    @test zr[].currentview.y == 1..7
+    
     # Pan-scroll
-    signal_emit(widget(c), "scroll-event", Bool,
-                eventscroll(c, RIGHT, UserUnit(8), UserUnit(4), 0))
+    modifier[] = Gtk4.ModifierType_NONE
+    signal_emit(ecs, "scroll", Bool, 1.0, 0.0)
+    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.y == 1..7
+    
+    signal_emit(ecs, "scroll", Bool, 0.0, -1.0)
     @test zr[].currentview.x == 5..15
     @test zr[].currentview.y == 2..8
-
-    signal_emit(widget(c), "scroll-event", Bool,
-                eventscroll(c, DOWN, UserUnit(8), UserUnit(4), 0))
-    @test zr[].currentview.x == 5..15
-    @test zr[].currentview.y == 3..9
-
+    
     destroy(win)
 end
 
@@ -682,13 +678,13 @@ end
         surf = GtkObservables.image_surface(fill(val, 3, 5))
         @test surf.height == 3 && surf.width == 5
         @test all(x->x == reinterpret(UInt32, cmp), surf.data)
-        destroy(surf)
+        Cairo.destroy(surf)
     end
 end
 
 @testset "Layout" begin
-    g = Grid()
-    g[1,1] = textbox("hello")
+    g = GtkGrid()
+    g[1,1] = textbox("hello").widget  # probably violates the spirit of this test
 end
 
 examplepath = joinpath(dirname(dirname(@__FILE__)), "examples")

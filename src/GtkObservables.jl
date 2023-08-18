@@ -5,7 +5,7 @@ if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@compi
 end
 
 using LinearAlgebra   # for `inv`
-using Gtk, Colors, FixedPointNumbers, Reexport
+using Gtk4, Colors, FixedPointNumbers, Reexport
 @reexport using Observables
 using Graphics
 using Graphics: set_coordinates, BoundingBox
@@ -13,20 +13,25 @@ using IntervalSets, RoundingIntegers
 # There's a conflict for width, so we have to scope those calls
 import Cairo
 
-using Gtk: GtkWidget
+using Gtk4: GtkScaleLeaf, GtkCheckButtonLeaf, GtkToggleButtonLeaf,
+    GtkButtonLeaf, GtkSpinButtonLeaf, GtkColorButtonLeaf,
+    GtkEntryLeaf, GtkTextViewLeaf, GtkComboBoxTextLeaf,
+    GtkLabelLeaf, GtkProgressBarLeaf
 # Constants for event analysis
-using Gtk.GConstants.GdkModifierType: SHIFT, CONTROL, MOD1
-using Gtk.GConstants.GdkScrollDirection: UP, DOWN, LEFT, RIGHT
-using Gtk.GdkEventType: BUTTON_PRESS, DOUBLE_BUTTON_PRESS, BUTTON_RELEASE
-
-if !isdefined(Gtk, :signal_handler_is_connected)
-    signal_handler_is_connected(w::GObject, handler_id::Culong) =
-        ccall((:g_signal_handler_is_connected, Gtk.libgobject), Cint, (Ptr{GObject}, Culong), w, handler_id) == 1
-end
+const SHIFT = Gtk4.ModifierType_SHIFT_MASK
+const CONTROL = Gtk4.ModifierType_CONTROL_MASK
+const MOD1 = Gtk4.ModifierType_ALT_MASK
+const BUTTON_PRESS = Gtk4.EventType_BUTTON_PRESS
+const BUTTON_RELEASE = Gtk4.EventType_BUTTON_RELEASE
+const MOTION_NOTIFY = Gtk4.EventType_MOTION_NOTIFY
+const UP = Gtk4.ScrollDirection_UP
+const DOWN = Gtk4.ScrollDirection_DOWN
+const LEFT = Gtk4.ScrollDirection_LEFT
+const RIGHT = Gtk4.ScrollDirection_RIGHT
 
 # Re-exports
 export set_coordinates, BoundingBox, SHIFT, CONTROL, MOD1, UP, DOWN, LEFT, RIGHT,
-       BUTTON_PRESS, DOUBLE_BUTTON_PRESS, destroy
+       BUTTON_PRESS, destroy
 
 ## Exports
 export slider, button, checkbox, togglebutton, colorbutton, dropdown, textbox, textarea, spinbutton, cyclicspinbutton, progressbar
@@ -57,10 +62,9 @@ observable(x::Observable) = x
 
 Return the GtkWidget `gtkw` associated with widget `w`.
 """
-widget(w::Widget) = w.widget
+Gtk4.widget(w::Widget) = w.widget
 
 Base.show(io::IO, w::Widget) = print(io, typeof(widget(w)), " with ", observable(w))
-Gtk.destroy(w::Widget) = destroy(widget(w))
 Base.getindex(w::Widget) = getindex(observable(w))
 Base.setindex!(w::Widget, val) = setindex!(observable(w), val)
 Observables.on(f, w::Widget; kwargs...) = on(f, observable(w); kwargs...)
@@ -87,26 +91,26 @@ include("rubberband.jl")
 
 ## More convenience functions
 # Containers
-Gtk.GtkWindow(w::Union{Widget,Canvas}) = GtkWindow(widget(w))
-Gtk.GtkFrame(w::Union{Widget,Canvas}) = GtkFrame(widget(w))
-Gtk.GtkAspectFrame(w::Union{Widget,Canvas}, args...) =
+Gtk4.GtkWindow(w::Union{Widget,Canvas}) = GtkWindow(widget(w))
+Gtk4.GtkFrame(w::Union{Widget,Canvas}) = GtkFrame(widget(w))
+Gtk4.GtkAspectFrame(w::Union{Widget,Canvas}, args...) =
     GtkAspectFrame(widget(w), args...)
 
-Base.push!(container::Union{Gtk.GtkBin,GtkBox}, child::Widget) =
+Base.push!(container::Union{GtkWindow,GtkBox}, child::Widget) =
     push!(container, widget(child))
-Base.push!(container::Union{Gtk.GtkBin,GtkBox}, child::Canvas) =
+Base.push!(container::Union{GtkWindow,GtkBox}, child::Canvas) =
     push!(container, widget(child))
 
-Base.:|>(parent::Gtk.GtkContainer, child::Union{Widget,Canvas}) = push!(parent, child)
+Base.:|>(parent::Gtk4.GtkBox, child::Union{Widget,Canvas}) = push!(parent, child)
 
-widget(c::Canvas) = c.widget
+Gtk4.widget(c::Canvas) = c.widget
 
-Gtk.set_gtk_property!(w::Union{Widget,Canvas}, key, val) = set_gtk_property!(widget(w), key, val)
-Gtk.get_gtk_property(w::Union{Widget,Canvas}, key) = get_gtk_property(widget(w), key)
-Gtk.get_gtk_property(w::Union{Widget,Canvas}, key, ::Type{T}) where {T} = get_gtk_property(widget(w), key, T)
+Gtk4.set_gtk_property!(w::Union{Widget,Canvas}, key, val) = set_gtk_property!(widget(w), key, val)
+Gtk4.get_gtk_property(w::Union{Widget,Canvas}, key) = get_gtk_property(widget(w), key)
+Gtk4.get_gtk_property(w::Union{Widget,Canvas}, key, ::Type{T}) where {T} = get_gtk_property(widget(w), key, T)
 
-Base.unsafe_convert(::Type{Ptr{Gtk.GLib.GObject}}, w::Union{Widget,Canvas}) =
-    Base.unsafe_convert(Ptr{Gtk.GLib.GObject}, widget(w))
+Base.unsafe_convert(::Type{Ptr{Gtk4.GLib.GObject}}, w::Union{Widget,Canvas}) =
+    Base.unsafe_convert(Ptr{Gtk4.GLib.GObject}, widget(w))
 
 Graphics.getgc(c::Canvas) = getgc(c.widget)
 Graphics.width(c::Canvas) = Graphics.width(c.widget)
@@ -143,7 +147,7 @@ function Base.setindex!(zr::Observable{ZoomRegion{T}}, inds::Tuple{AbstractUnitR
     setindex!(zr, ClosedInterval{T}.(inds))
 end
 
-Gtk.reveal(c::Canvas, args...) = reveal(c.widget, args...)
+Gtk4.reveal(c::Canvas, args...) = reveal(c.widget, args...)
 
 const _ref_dict = IdDict{Any, Any}()
 
@@ -159,6 +163,6 @@ function gc_preserve(widget::Union{GtkWidget,GtkCanvas}, obj)
     end
 end
 
-Base.VERSION >= v"1.4.2" && include("precompile.jl")
+include("precompile.jl")
 
 end # module
