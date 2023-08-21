@@ -4,7 +4,9 @@
 
 [![codecov](https://codecov.io/gh/JuliaGizmos/GtkObservables.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaGizmos/GtkObservables.jl)
 
-GtkObservables is designed to simplify the creation of graphical user interfaces (GUIs) using [Gtk](https://github.com/JuliaGraphics/Gtk.jl) and Julia.
+**Note: starting with version 2.0.0, GtkObservables.jl is based on [Gtk4](https://github.com/JuliaGtk/Gtk4.jl).**
+
+GtkObservables is designed to simplify the creation of graphical user interfaces (GUIs) using [Gtk4](https://github.com/JuliaGtk/Gtk4.jl) and Julia.
 GtkObservables descended from
 [GtkInteract](https://github.com/jverzani/GtkInteract.jl), and mimics
 aspects of the design of
