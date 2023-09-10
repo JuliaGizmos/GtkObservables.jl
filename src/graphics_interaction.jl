@@ -259,9 +259,9 @@ struct MouseHandler{U<:CairoUnit}
         function mousescroll_cb(ec::GtkEventControllerScroll, dx::Float64, dy::Float64)
             vert = (abs(dy)>abs(dx))
             dir = if vert
-                dy > 0 ? Gtk4.ScrollDirection_UP : Gtk4.ScrollDirection_DOWN
+                dy > 0 ? Gtk4.ScrollDirection_DOWN : Gtk4.ScrollDirection_UP
             else
-                dx > 0 ? Gtk4.ScrollDirection_RIGHT : Gtk4.ScrollDirection_LEFT
+                dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
             end
             handler.scroll[] = MouseScroll{U}(ec, dir, modifier_ref)
             Cint(1)
