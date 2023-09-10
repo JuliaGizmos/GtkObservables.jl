@@ -653,17 +653,17 @@ end
     signal_emit(ecm, "motion", Nothing, xd.val, yd.val)
     modifier[]=CONTROL
     ecs = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
-    signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
+    signal_emit(ecs, "scroll", Bool, 0.0, -1.0)
     @test zr[].currentview.x == 4..14
     @test zr[].currentview.y == 1..7
     
     # Pan-scroll
     modifier[] = Gtk4.ModifierType_NONE
-    signal_emit(ecs, "scroll", Bool, 1.0, 0.0)
+    signal_emit(ecs, "scroll", Bool, -1.0, 0.0)
     @test zr[].currentview.x == 5..15
     @test zr[].currentview.y == 1..7
     
-    signal_emit(ecs, "scroll", Bool, 0.0, -1.0)
+    signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
     @test zr[].currentview.x == 5..15
     @test zr[].currentview.y == 2..8
     
