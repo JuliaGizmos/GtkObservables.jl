@@ -554,6 +554,12 @@ function init_pan_scroll(canvas::Canvas{U},
     enabled = Observable(true)
     pan = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
         if enabled[]
+            if event.modifiers & CONTROL == CONTROL
+            # filter out zoom events
+            # TODO: figure out how to handle custom filters -- this will fail if the user
+            # sets a modifier other than CONTROL to do zoom
+                return nothing
+            end
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
                 setindex!(zr, pan_x(zr[], s))
