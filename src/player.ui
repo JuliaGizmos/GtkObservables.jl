@@ -4,8 +4,8 @@
   <!-- interface-name player.ui -->
   <requires lib="gtk" version="4.0"/>
       <object class="GtkFrame" id="player_frame1">
-        <property name="hexpand">True</property>
-        <property name="vexpand">True</property>
+        <property name="hexpand">False</property>
+        <property name="vexpand">False</property>
         <child>
           <object class="GtkBox" id="splitv1">
             <property name="orientation">vertical</property>
@@ -39,6 +39,7 @@
                 <child>
                   <object class="GtkEntry" id="index_entry1">
                     <property name="halign">center</property>
+                    <property name="width-chars">5</property>
                   </object>
                 </child>
                 <child>

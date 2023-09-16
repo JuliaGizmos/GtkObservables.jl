@@ -259,9 +259,9 @@ struct MouseHandler{U<:CairoUnit}
         function mousescroll_cb(ec::GtkEventControllerScroll, dx::Float64, dy::Float64)
             vert = (abs(dy)>abs(dx))
             dir = if vert
-                dy > 0 ? Gtk4.ScrollDirection_UP : Gtk4.ScrollDirection_DOWN
+                dy > 0 ? Gtk4.ScrollDirection_DOWN : Gtk4.ScrollDirection_UP
             else
-                dx > 0 ? Gtk4.ScrollDirection_RIGHT : Gtk4.ScrollDirection_LEFT
+                dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
             end
             handler.scroll[] = MouseScroll{U}(ec, dir, modifier_ref)
             Cint(1)
@@ -554,6 +554,12 @@ function init_pan_scroll(canvas::Canvas{U},
     enabled = Observable(true)
     pan = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
         if enabled[]
+            if event.modifiers & CONTROL == CONTROL
+            # filter out zoom events
+            # TODO: figure out how to handle custom filters -- this will fail if the user
+            # sets a modifier other than CONTROL to do zoom
+                return nothing
+            end
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
                 setindex!(zr, pan_x(zr[], s))
