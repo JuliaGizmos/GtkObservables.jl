@@ -352,9 +352,6 @@ end
 colorbutton(observable::Observable{C}, widget::GtkColorButton, id, preserved = []) where {T, C <: Color{T, 3}} =
 ColorButton{C}(observable, widget, id, preserved)
 
-Base.convert(::Type{RGBA}, gcolor::Gtk4.GdkRGBA) = RGBA(gcolor.r, gcolor.g, gcolor.b, gcolor.a)
-Base.convert(::Type{Gtk4.GdkRGBA}, color::Colorant) = Gtk4.GdkRGBA(red(color), green(color), blue(color), alpha(color))
-
 """
     colorbutton(color; widget=nothing, observable=nothing)
     colorbutton(; color=nothing, widget=nothing, observable=nothing)
@@ -373,7 +370,7 @@ function colorbutton(;
     if own === nothing
         own = observable != obsin
     end
-    getcolor(w) = get_gtk_property(w, :rgba, Gtk4.GdkRGBA)
+    getcolor(w) = Gtk4.rgba(GtkColorChooser(w))
     setcolor!(w, val) = set_gtk_property!(w, :rgba, convert(Gtk4.GdkRGBA, val))
     if widget === nothing
         widget = GtkColorButton(convert(Gtk4.GdkRGBA, color))
