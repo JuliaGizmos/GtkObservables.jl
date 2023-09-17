@@ -31,6 +31,11 @@ push!(vbox, cb)
 push!(mainwin, vbox)
 show(mainwin)
 
+colorbuttn = colorbutton(;color=colorant"orange")
+win_color_obs=observable(colorbuttn)
+push!(vbox,colorbuttn)
+
+
 # Create the auxillary window and link its visibility to the checkbox
 cnvs = canvas()
 auxwin = GtkWindow(cnvs)
@@ -42,6 +47,7 @@ signal_connect(mainwin, "destroy") do w
     destroy(auxwin)
 end
 # Draw something in the auxillary window
-draw(cnvs) do c
-    fill!(c, colorant"orange")
+draw(cnvs,win_color_obs) do c, win_color
+    fill!(c, win_color)
 end
+

@@ -1,8 +1,8 @@
 """
     signals = init_zoom_rubberband(canvas::GtkObservables.Canvas,
                                    zr::Observable{ZoomRegion},
-                                   initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == CONTROL),
-                                   reset = btn->(btn.button == 1 && btn.clicktype == DOUBLE_BUTTON_PRESS && btn.modifiers == CONTROL),
+                                   initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && && btn.n_press == 1 btn.modifiers == CONTROL),
+                                   reset = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && btn.modifiers == CONTROL),
                                    minpixels = 2)
 
 Initialize rubber-band selection that updates `zr`. `signals` is a

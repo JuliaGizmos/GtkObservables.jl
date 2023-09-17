@@ -106,17 +106,18 @@ Base.:+(xy1::XY{T}, xy2::XY{T}) where {T} = XY{T}(xy1.x+xy2.x,xy1.y+xy2.y)
 Base.:-(xy1::XY{T}, xy2::XY{T}) where {T} = XY{T}(xy1.x-xy2.x,xy1.y-xy2.y)
 
 """
-    MouseButton(position, button, clicktype, modifiers)
+    MouseButton(position, button, clicktype, modifiers, n_press=1)
 
 A type to hold information about a mouse button event (e.g., a
 click). `position` is the canvas position of the pointer (see
 [`XY`](@ref)). `button` is an integer identifying the
 button, where 1=left button, 2=middle button, 3=right
 button. `clicktype` may be `BUTTON_PRESS` or
-`DOUBLE_BUTTON_PRESS`. `modifiers` indicates whether any keys were
+`BUTTON_RELEASE`. `modifiers` indicates whether any keys were
 held down during the click; they may be any combination of `SHIFT`,
 `CONTROL`, or `MOD1` stored as a bitfield (test with `btn.modifiers &
-SHIFT`).
+SHIFT`). Multiple clicks can be handled by setting the `n_press`
+argument. For example, a double click event corresponds to `n_press=2`.
 
 The fieldnames are the same as the argument names above.
 
