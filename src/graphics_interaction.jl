@@ -228,49 +228,62 @@ struct MouseHandler{U<:CairoUnit}
     scroll::Observable{MouseScroll{U}}
     ids::Vector{Culong}   # for disabling any of these callbacks
     widget::GtkCanvas
+    modifier_ref::Union{Nothing,Ref{Gtk4.ModifierType}}
 
     function MouseHandler{U}(canvas::GtkCanvas, modifier_ref=nothing) where U<:CairoUnit
         pos = XY(U(-1), U(-1))
         btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
         scroll = MouseScroll(pos, UP, SHIFT)
         ids = Vector{Culong}(undef, 0)
-        handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas)
+        handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas, modifier_ref)
         # Create the callbacks
         g = GtkGestureClick(canvas,0)
         gm = GtkEventControllerMotion(canvas)
-        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_VERTICAL, canvas)
-
-        function mousedown_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
-            handler.buttonpress[] = MouseButton{U}(ec, n_press, x, y, BUTTON_PRESS, modifier_ref)
-            nothing
-        end
-        function mouseup_cb(ec::GtkGestureClick, n_press::Int32, x::Float64, y::Float64)
-            handler.buttonrelease[] = MouseButton{U}(ec, n_press, x, y, BUTTON_RELEASE, modifier_ref)
-            nothing
-        end
-        push!(ids, signal_connect(mousedown_cb, g, "pressed"))
-        push!(ids, signal_connect(mouseup_cb, g, "released"))
-
-        function mousemove_cb(ec::GtkEventControllerMotion, x::Float64, y::Float64)
-            handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY, modifier_ref)
-            nothing
-        end
-        push!(ids, signal_connect(mousemove_cb, gm, "motion"))
-
-        function mousescroll_cb(ec::GtkEventControllerScroll, dx::Float64, dy::Float64)
-            vert = (abs(dy)>abs(dx))
-            dir = if vert
-                dy > 0 ? Gtk4.ScrollDirection_DOWN : Gtk4.ScrollDirection_UP
-            else
-                dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
-            end
-            handler.scroll[] = MouseScroll{U}(ec, dir, modifier_ref)
-            Cint(1)
-        end
-        push!(ids, signal_connect(mousescroll_cb, gs, "scroll"))
+        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_HORIZONTAL |
+                                      Gtk4.EventControllerScrollFlags_VERTICAL , canvas)
+        
+        push!(ids, signal_connect(mousedown_cb, g, "pressed", Nothing, (Int32, Float64, Float64), false, handler))
+        push!(ids, signal_connect(mouseup_cb, g, "released", Nothing, (Int32, Float64, Float64), false, handler))
+        push!(ids, signal_connect(mousemove_cb, gm, "motion", Nothing, (Float64, Float64), false, handler))
+        push!(ids, signal_connect(mousescroll_cb, gs, "scroll", Cint, (Float64, Float64), false, handler))
 
         handler
     end
+end
+
+function mousedown_cb(ecp::Ptr, n_press::Int32, x::Float64, y::Float64, handler::MouseHandler{U}) where U
+    ec = convert(GtkGestureClick, ecp)
+    handler.buttonpress[] = MouseButton{U}(ec, n_press, x, y, BUTTON_PRESS, handler.modifier_ref)
+    nothing
+end
+
+function mouseup_cb(ecp::Ptr, n_press::Int32, x::Float64, y::Float64, handler::MouseHandler{U}) where U
+    ec = convert(GtkGestureClick, ecp)
+    handler.buttonrelease[] = MouseButton{U}(ec, n_press, x, y, BUTTON_RELEASE, handler.modifier_ref)
+    nothing
+end
+
+function mousemove_cb(ecp::Ptr, x::Float64, y::Float64, handler::MouseHandler{U}) where U
+    ec = convert(GtkEventControllerMotion, ecp)
+    handler.motion[] = MouseButton{U}(ec, 0, x, y, MOTION_NOTIFY, handler.modifier_ref)
+    nothing
+end
+
+function mousescroll_cb(ecp::Ptr, dx::Float64, dy::Float64, handler::MouseHandler{U}) where U
+    ec = convert(GtkEventControllerScroll, ecp)
+    vert = (abs(dy)>abs(dx))
+    dir = if vert
+        dy > 0 ? Gtk4.ScrollDirection_DOWN : Gtk4.ScrollDirection_UP
+    else
+        dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
+    end
+    modifiers = if handler.modifier_ref === nothing
+        Gtk4.current_event_state(ec)
+    else
+        handler.modifier_ref[]
+    end
+    handler.scroll[] = MouseScroll{U}(handler.motion[].position, dir, modifiers)
+    Cint(1)
 end
 
 """
