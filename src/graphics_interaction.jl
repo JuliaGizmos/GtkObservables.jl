@@ -277,7 +277,12 @@ function mousescroll_cb(ecp::Ptr, dx::Float64, dy::Float64, handler::MouseHandle
     else
         dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
     end
-    handler.scroll[] = MouseScroll{U}(ec, dir, handler.modifier_ref)
+    modifiers = if handler.modifier_ref === nothing
+        Gtk4.current_event_state(ec)
+    else
+        handler.modifier_ref[]
+    end
+    handler.scroll[] = MouseScroll{U}(handler.motion[].position, dir, modifiers)
     Cint(1)
 end
 
