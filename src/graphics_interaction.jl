@@ -239,7 +239,8 @@ struct MouseHandler{U<:CairoUnit}
         # Create the callbacks
         g = GtkGestureClick(canvas,0)
         gm = GtkEventControllerMotion(canvas)
-        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_VERTICAL, canvas)
+        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_HORIZONTAL |
+                                      Gtk4.EventControllerScrollFlags_VERTICAL , canvas)
         
         push!(ids, signal_connect(mousedown_cb, g, "pressed", Nothing, (Int32, Float64, Float64), false, handler))
         push!(ids, signal_connect(mouseup_cb, g, "released", Nothing, (Int32, Float64, Float64), false, handler))
