@@ -143,7 +143,7 @@ Gtk4.GLib.start_main_loop()
     sleep(0.01)    # For the Gtk eventloop
     @test s[] == 8
     s[] = 1:7, 5
-    sleep(0.05)
+    sleep(0.1)
     @test s[] == 5
     sleep(0.1)
 
