@@ -60,8 +60,8 @@
         </child>
       </object>
       <object class="GtkFrame" id="player_frame2">
-        <property name="hexpand">True</property>
-        <property name="vexpand">True</property>
+        <property name="hexpand">False</property>
+        <property name="vexpand">False</property>
         <child>
           <object class="GtkBox" id="splitv2">
             <property name="orientation">vertical</property>
@@ -95,6 +95,7 @@
                 <child>
                   <object class="GtkEntry" id="index_entry2">
                     <property name="halign">center</property>
+                    <property name="width-chars">5</property>
                   </object>
                 </child>
                 <child>
