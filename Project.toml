@@ -1,6 +1,6 @@
 name = "GtkObservables"
 uuid = "8710efd8-4ad6-11eb-33ea-2d5ceb25a41c"
-version = "2.0.2"
+version = "2.0.3"
 
 [deps]
 Cairo = "159f3aea-2a34-519c-b102-8c37f9878175"
@@ -19,10 +19,12 @@ RoundingIntegers = "d5f540fe-1c90-5db3-b776-2e2f362d9394"
 [compat]
 Cairo = "1"
 Colors = "0.12"
+Dates = "1.6"
 FixedPointNumbers = "0.8"
 Graphics = "1"
 Gtk4 = "0.5"
 IntervalSets = "0.5, 0.6, 0.7"
+LinearAlgebra = "1.6"
 Observables = "0.4, 0.5"
 PrecompileTools = "1"
 Reexport = "0.2, 1"
