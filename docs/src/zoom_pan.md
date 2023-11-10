@@ -35,8 +35,7 @@ Zoom and pan interactions all work through a [`ZoomRegion`](@ref) observable; le
 create one for this image:
 ```jldoctest demozoom
 julia> zr = Observable(ZoomRegion(image))
-Observable{ZoomRegion{RoundingIntegers.RInt64}} with 0 listeners. Value:
-ZoomRegion{RoundingIntegers.RInt64}(XY(1..768, 1..512), XY(1..768, 1..512))
+Observable(ZoomRegion{RoundingIntegers.RInt64}(XY(1 .. 768, 1 .. 512), XY(1 .. 768, 1 .. 512)))
 ```
 
 The key thing to note here is that it has been created for the
@@ -65,10 +64,7 @@ julia> redraw = draw(c, imgroi, zr) do cnvs, img, r
            # every point on the canvas has coordinates that correspond
            # to the same position in the image.
            set_coordinates(cnvs, r)
-       end
-2-element Vector{Observables.ObserverFunction}:
- (::Observables.ObserverFunction) (generic function with 0 methods)
- (::Observables.ObserverFunction) (generic function with 0 methods)
+       end;
 ```
 
 We won't need to do anything further with `redraw`, but as a reminder:
@@ -91,7 +87,7 @@ julia> zr[] = (100:300, axes(image, 2))
 More useful is to couple `zr` to mouse actions. Let's turn on both
 zooming (with [`init_zoom_rubberband`](@ref)) and panning (with [`init_pan_drag`](@ref)):
 
-```jldoctest demozoom; filter=r"#\d+"
+```jldoctest demozoom; filter=r"(.*(?:Observable).*)"
 julia> rb = init_zoom_rubberband(c, zr)
 Dict{String, Any} with 5 entries:
   "drag"    => ObserverFunction(#179, Observable{MouseButton{UserUnit}} with 1 …

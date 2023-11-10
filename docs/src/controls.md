@@ -15,9 +15,10 @@ A `GtkObservables.Slider` holds two important objects: an `Observable`
 (encoding the "state" of the widget) and a `GtkWidget` (which controls
 the on-screen display). We can extract both of these components:
 
-```jldoctest demo1
+```jldoctest demo1; filter=r"(.*(?:GtkObservables).*)"
 julia> observable(sl)
 Observable(6)
+    0 => (::GtkObservables.var"#9#10")(val)
 
 julia> typeof(widget(sl))
 GtkScaleLeaf
@@ -64,6 +65,13 @@ julia> sl[] = 1  # shorthand for observable(sl)[] = 1
 1
 ```
 
+```@meta
+DocTestSetup = quote
+    sleep(0.1)   # GTK's main loop needs to iterate for the slider to be updated
+end
+```
+
+
 Now if you check the window, you'll see that the slider is at 1.
 
 Realistic GUIs may have many different widgets. Let's add a second way
@@ -72,8 +80,7 @@ value into a textbox:
 
 ```jldoctest demo1
 julia> tb = textbox(Int; observable=observable(sl))
-GtkEntryLeaf with Observable{Int64} with 2 listeners. Value:
-1
+GtkEntryLeaf with Observable(1)
 
 julia> push!(bx, tb);
 ```
