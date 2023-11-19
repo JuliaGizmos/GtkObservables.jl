@@ -240,7 +240,8 @@ struct MouseHandler{U<:CairoUnit}
         g = GtkGestureClick(canvas,0)
         gm = GtkEventControllerMotion(canvas)
         gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_HORIZONTAL |
-                                      Gtk4.EventControllerScrollFlags_VERTICAL , canvas)
+                                      Gtk4.EventControllerScrollFlags_VERTICAL  |
+                                      Gtk4.EventControllerScrollFlags_DISCRETE , canvas)
         
         push!(ids, signal_connect(mousedown_cb, g, "pressed", Nothing, (Int32, Float64, Float64), false, handler))
         push!(ids, signal_connect(mouseup_cb, g, "released", Nothing, (Int32, Float64, Float64), false, handler))
@@ -515,6 +516,9 @@ function zoom(zr::ZoomRegion, s, pos::XY)
     w, h = IntervalSets.width(xview), IntervalSets.width(yview)
     fx, fy = (centerx-minimum(xview))/w, (centery-minimum(yview))/h
     wbb, hbb = s*w, s*h
+    # set a limit on how far in we can zoom (ImageView issue #297)
+    wbb = (wbb<2.0) ? 2.0 : wbb
+    hbb = (hbb<2.0) ? 2.0 : hbb
     xview = interior(ClosedInterval(centerx-fx*wbb,centerx+(1-fx)*wbb), xviewlimits)
     yview = interior(ClosedInterval(centery-fy*hbb,centery+(1-fy)*hbb), yviewlimits)
     ZoomRegion(zr.fullview, XY(xview, yview))

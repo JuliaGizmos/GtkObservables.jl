@@ -558,6 +558,19 @@ Base.axes(::Foo) = (Base.OneTo(7), Base.OneTo(9))
     @test zrz.currentview.y == 16..55
     zrr = GtkObservables.reset(zrz)
     @test zrr == zr
+    
+    # ImageView #297
+    # When we have zoomed so far in that the region is less than three
+    # pixels wide, do not zoom in further. This prevents a truncation error
+    # when the new interval width is 0 and also prevents getting "stuck" at
+    # that zoom level (since zooming back out doesn't work when the current
+    # interval width is zero).
+    zrn = ZoomRegion((1:5,1:5))
+    c = XY(UserUnit(3),UserUnit(3))
+    zrz = zoom(zrn, 0.5)
+    @test zrz.currentview.x == 2..4
+    zrz = zoom(zrz, 0.5)
+    @test zrz.currentview.x == 2..4
 
     zrbb = ZoomRegion(zr.fullview, BoundingBox(5, 15, 35, 75))
     @test zrbb.fullview === zr.fullview
