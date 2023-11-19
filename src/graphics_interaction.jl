@@ -275,7 +275,7 @@ function mousescroll_cb(ecp::Ptr, dx::Float64, dy::Float64, handler::MouseHandle
     dir = if vert
         dy > 0 ? Gtk4.ScrollDirection_DOWN : Gtk4.ScrollDirection_UP
     else
-        dx > 0 ? Gtk4.ScrollDirection_LEFT : Gtk4.ScrollDirection_RIGHT
+        dx > 0 ? Gtk4.ScrollDirection_RIGHT : Gtk4.ScrollDirection_LEFT
     end
     modifiers = if handler.modifier_ref === nothing
         Gtk4.current_event_state(ec)

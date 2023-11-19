@@ -660,11 +660,11 @@ end
     # Pan-scroll
     modifier[] = Gtk4.ModifierType_NONE
     signal_emit(ecs, "scroll", Bool, -1.0, 0.0)
-    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.x == 3..13
     @test zr[].currentview.y == 2..8
     
     signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
-    @test zr[].currentview.x == 5..15
+    @test zr[].currentview.x == 3..13
     @test zr[].currentview.y == 3..9
     
     destroy(win)
