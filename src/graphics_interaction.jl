@@ -515,6 +515,10 @@ function zoom(zr::ZoomRegion, s, pos::XY)
     w, h = IntervalSets.width(xview), IntervalSets.width(yview)
     fx, fy = (centerx-minimum(xview))/w, (centery-minimum(yview))/h
     wbb, hbb = s*w, s*h
+    # set a limit on how far in we can zoom (ImageView issue #297)
+    if wbb <= 1.0 || hbb <= 1.0
+        return zr
+    end
     xview = interior(ClosedInterval(centerx-fx*wbb,centerx+(1-fx)*wbb), xviewlimits)
     yview = interior(ClosedInterval(centery-fy*hbb,centery+(1-fy)*hbb), yviewlimits)
     ZoomRegion(zr.fullview, XY(xview, yview))
