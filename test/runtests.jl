@@ -1,8 +1,3 @@
-# Workaround for libz loading confusion.
-@static if Sys.islinux()
-    using ImageMagick
-end
-
 using GtkObservables, Gtk4, IntervalSets, Graphics, Colors,
       TestImages, FileIO, FixedPointNumbers, RoundingIntegers, Dates, Cairo,
       IdentityRanges
