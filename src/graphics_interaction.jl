@@ -303,6 +303,9 @@ struct Canvas{U}
 
     function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true, init_back=false, modifier_ref=nothing) where U
         gtkcanvas = GtkCanvas(w, h, init_back)
+        # let canvas grow to fill available space
+        Gtk4.hexpand(gtkcanvas,true)
+        Gtk4.vexpand(gtkcanvas,true)
         # Initialize handlers
         mouse = MouseHandler{U}(gtkcanvas, modifier_ref)
         grab_focus(gtkcanvas)
