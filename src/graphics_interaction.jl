@@ -287,11 +287,48 @@ function mousescroll_cb(ecp::Ptr, dx::Float64, dy::Float64, handler::MouseHandle
     Cint(1)
 end
 
+function save_cb(::Ptr,par,c)
+    isdefined(c,:back) || return nothing
+    function file_save_cb(dlg, resobj)
+        try
+            gfile = Gtk4.G_.save_finish(dlg, Gtk4.GLib.GAsyncResult(resobj))
+            filepath=Gtk4.GLib.path(Gtk4.GLib.GFile(gfile))
+            if endswith(filepath,".png")
+                Cairo.write_to_png(c.back, filepath)
+            else
+                info_dialog("Only PNG format is currently supported. Please end your filename with .png", toplevel(c)) do
+                end
+            end
+        catch e
+            if !isa(e, Gtk4.GLib.GErrorException)
+                error_dialog("Failed to save: $e", toplevel(c)) do
+                end
+            end
+        end
+        return nothing
+    end
+    dlg = GtkFileDialog()
+    Gtk4.G_.save(dlg, toplevel(c), nothing, file_save_cb)
+    nothing
+end
+
+function copy_cb(::Ptr,par,c)
+    isdefined(c,:back) || return nothing
+    io = IOBuffer()
+    Cairo.write_to_png(c.back,io)
+    arr = take!(io)
+    b=Gtk4.GLib.GBytes(arr)
+    cp = GdkContentProvider("image/png", b)
+    c = Gtk4.clipboard(GdkDisplay())
+    Gtk4.content(c, cp)
+    nothing
+end
+
 """
     GtkObservables.Canvas{U}(w=-1, h=-1, own=true)
 
 Create a canvas for drawing and interaction. The relevant fields are:
-  - `canvas`: the "raw" Gtk widget (from Gtk4.jl)
+  - `widget`: the "raw" Gtk widget (from Gtk4.jl)
   - `mouse`: the [`MouseHandler{U}`](@ref) for this canvas.
 
 See also [`canvas`](@ref).
@@ -299,6 +336,7 @@ See also [`canvas`](@ref).
 struct Canvas{U}
     widget::GtkCanvas
     mouse::MouseHandler{U}
+    action_group::Gtk4.GLib.GSimpleActionGroupLeaf
     preserved::Vector{Any}
 
     function Canvas{U}(w::Int=-1, h::Int=-1; own::Bool=true, init_back=false, modifier_ref=nothing) where U
@@ -309,8 +347,12 @@ struct Canvas{U}
         # Initialize handlers
         mouse = MouseHandler{U}(gtkcanvas, modifier_ref)
         grab_focus(gtkcanvas)
+        ag = Gtk4.GLib.GSimpleActionGroup()
+        push!(gtkcanvas, Gtk4.GLib.GActionGroup(ag), "canvas")
+        Gtk4.GLib.add_action(Gtk4.GLib.GActionMap(ag),"save",save_cb,gtkcanvas)
+        Gtk4.GLib.add_action(Gtk4.GLib.GActionMap(ag),"copy",copy_cb,gtkcanvas)
         preserved = []
-        canvas = new{U}(gtkcanvas, mouse, preserved)
+        canvas = new{U}(gtkcanvas, mouse, ag, preserved)
         gc_preserve(gtkcanvas, canvas)
         canvas
     end
