@@ -299,7 +299,9 @@ end
         sleep(0.1)
     end
     @test s[] == 8
-    #@test string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
+    if !Sys.iswindows()
+        @test string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
+    end
     Gtk4.destroy(win)
 
     p = player(1:1000)
