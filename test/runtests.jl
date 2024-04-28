@@ -294,7 +294,7 @@ end
     @test s[] == 1
     btn_fwd[] = nothing
     @test s[] == 2
-    #p.widget.play_forward[] = nothing
+    p.widget.play_forward[] = nothing
     #for i = 1:7
     #    sleep(0.1)
     #end
