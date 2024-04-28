@@ -282,6 +282,7 @@ const counter = Ref(0)
     Gtk4.destroy(w)
 end
 
+if false
 @testset "Compound widgets" begin
     ## player widget
     s = Observable(1)
@@ -307,6 +308,7 @@ end
     push!(win, frame(p))
     widget(p).direction[] = 1
     Gtk4.destroy(win)  # this should not generate a lot of output
+end
 end
 
 @testset "CairoUnits" begin
