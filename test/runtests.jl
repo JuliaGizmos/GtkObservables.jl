@@ -292,8 +292,8 @@ end
     g[1,1] = frame(p)
     btn_fwd = p.widget.step_forward
     @test s[] == 1
-    #btn_fwd[] = nothing
-    #@test s[] == 2
+    btn_fwd[] = nothing
+    @test s[] == 2
     #p.widget.play_forward[] = nothing
     #for i = 1:7
     #    sleep(0.1)
