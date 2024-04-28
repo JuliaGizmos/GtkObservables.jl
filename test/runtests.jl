@@ -282,7 +282,6 @@ const counter = Ref(0)
     Gtk4.destroy(w)
 end
 
-if false
 @testset "Compound widgets" begin
     ## player widget
     s = Observable(1)
@@ -293,12 +292,12 @@ if false
     g[1,1] = frame(p)
     btn_fwd = p.widget.step_forward
     @test s[] == 1
-    btn_fwd[] = nothing
-    @test s[] == 2
-    p.widget.play_forward[] = nothing
-    for i = 1:7
-        sleep(0.1)
-    end
+    #btn_fwd[] = nothing
+    #@test s[] == 2
+    #p.widget.play_forward[] = nothing
+    #for i = 1:7
+    #    sleep(0.1)
+    #end
     @test s[] == 8
     @test string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
     Gtk4.destroy(win)
@@ -308,7 +307,6 @@ if false
     push!(win, frame(p))
     widget(p).direction[] = 1
     Gtk4.destroy(win)  # this should not generate a lot of output
-end
 end
 
 @testset "CairoUnits" begin
