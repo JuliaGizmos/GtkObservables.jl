@@ -295,9 +295,9 @@ end
     btn_fwd[] = nothing
     @test s[] == 2
     p.widget.play_forward[] = nothing
-    #for i = 1:7
-    #    sleep(0.1)
-    #end
+    for i = 1:7
+        sleep(0.1)
+    end
     #@test s[] == 8
     #@test string(p) == "GtkObservables.PlayerWithTextbox with Observable(8)"
     Gtk4.destroy(win)
