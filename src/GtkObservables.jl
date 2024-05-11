@@ -127,11 +127,11 @@ function Graphics.set_coordinates(c::Union{GraphicsContext,Canvas,GtkCanvas}, zr
 end
 function Graphics.set_coordinates(c::Union{Canvas,GtkCanvas}, inds::Tuple{AbstractUnitRange,AbstractUnitRange})
     y, x = inds
-    bb = BoundingBox(first(x), last(x), first(y), last(y))
+    bb = BoundingBox(first(x)-0.5, last(x)+0.5, first(y)-0.5, last(y)+0.5)
     set_coordinates(c, bb)
 end
 function Graphics.BoundingBox(xy::XY)
-    BoundingBox(minimum(xy.x), maximum(xy.x), minimum(xy.y), maximum(xy.y))
+    BoundingBox(minimum(xy.x)-0.5, maximum(xy.x)+0.5, minimum(xy.y)-0.5, maximum(xy.y)+0.5)
 end
 
 function Base.setindex!(zr::Observable{ZoomRegion{T}}, cv::XY{ClosedInterval{S}}) where {T,S}
