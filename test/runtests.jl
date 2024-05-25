@@ -344,7 +344,7 @@ end
     @test isa(MouseScroll{UserUnit}(), MouseScroll{UserUnit})
     @test isa(MouseScroll{DeviceUnit}(), MouseScroll{DeviceUnit})
 
-    @test BoundingBox(XY(2..4, -15..15)) === BoundingBox(2, 4, -15, 15)
+    @test BoundingBox(XY(2..4, -15..15)) === BoundingBox(1.5, 4.5, -15.5, 15.5)
 
     c = canvas(208, 207)
     win = GtkWindow(c)
@@ -364,8 +364,8 @@ end
     corner_dev = (DeviceUnit(208), DeviceUnit(207))
     can_test_coords = (get(ENV, "CI", nothing) != "true" || !Sys.islinux()) && can_test_width
     for (coords, corner_usr) in ((BoundingBox(0, 1, 0, 1), (UserUnit(1), UserUnit(1))),
-                                 (ZoomRegion((5:10, 3:5)), (UserUnit(5), UserUnit(10))),
-                                 ((-1:1, 101:110), (UserUnit(110), UserUnit(1))))
+                                 (ZoomRegion((5:10, 3:5)), (UserUnit(5.5), UserUnit(10.5))),
+                                 ((-1:1, 101:110), (UserUnit(110.5), UserUnit(1.5))))
         set_coordinates(c, coords)
         if can_test_coords
             @test GtkObservables.convertunits(DeviceUnit, c, corner_dev...) == corner_dev
