@@ -31,7 +31,7 @@ struct PlayerWithTextbox
     range::UnitRange{Int}     # valid values for index
     direction::Observable{Int8}   # +1 = forward, -1 = backward, 0 = not playing
     # GUI elements
-    frame::GtkFrame
+    frame::GtkFrameLeaf
     scale::Slider{Int}
     entry::Textbox
     play_back::Button
@@ -54,9 +54,6 @@ function PlayerWithTextbox(builder, index::Observable{Int}, range::UnitRange{Int
     stop = button(; widget=builder["stop$id"]::Gtk4.GtkButton)
     step_forward = button(; widget=builder["step_forward$id"]::Gtk4.GtkButton)
     play_forward = button(; widget=builder["play_forward$id"]::Gtk4.GtkButton)
-
-    # Fix up widget properties
-    set_gtk_property!(scale.widget, "round-digits", 0)  # glade/gtkbuilder bug that I have to set this here?
 
     # Link the buttons
     clampindex(i) = clamp(i, minimum(range), maximum(range))
@@ -130,7 +127,7 @@ Base.unsafe_convert(::Type{Ptr{Gtk4.GLib.GObject}}, p::PlayerWithTextbox) =
 
 struct TimeWidget{T <: Dates.TimeType} <: InputWidget{T}
     observable::Observable{T}
-    widget::GtkFrame
+    widget::GtkFrameLeaf
 end
 
 """

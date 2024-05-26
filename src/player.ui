@@ -12,7 +12,7 @@
             <property name="spacing">1</property>
             <child>
               <object class="GtkScale" id="index_scale1">
-                <property name="round-digits">6</property>
+                <property name="round-digits">0</property>
               </object>
             </child>
             <child>
@@ -68,7 +68,7 @@
             <property name="spacing">1</property>
             <child>
               <object class="GtkScale" id="index_scale2">
-                <property name="round-digits">6</property>
+                <property name="round-digits">0</property>
               </object>
             </child>
             <child>
