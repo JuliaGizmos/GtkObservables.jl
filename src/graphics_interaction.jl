@@ -301,7 +301,7 @@ function save_cb(::Ptr,par,c)
             end
         catch e
             if !isa(e, Gtk4.GLib.GErrorException)
-                error_dialog("Failed to save: $e", toplevel(c)) do
+                info_dialog("Failed to save: $e", toplevel(c)) do
                 end
             end
         end
