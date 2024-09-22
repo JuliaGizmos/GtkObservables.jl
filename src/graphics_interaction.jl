@@ -139,8 +139,6 @@ function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=
     MouseButton{U}(pos, UInt32(button), clicktype, modifiers, n_press)
 end
 
-_get_button(modifiers, e::GtkGestureSingle) = Gtk4.current_button(e)
-
 function _get_button(modifiers, e::GtkEventController)
     if modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
         return 1
@@ -149,7 +147,7 @@ function _get_button(modifiers, e::GtkEventController)
     elseif modifiers & Gtk4.ModifierType_BUTTON3_MASK == Gtk4.ModifierType_BUTTON3_MASK
         return 3        
     else
-        return 0
+        return isa(e, GtkGestureSingle) ? Gtk4.current_button(e) : 0
     end
 end
 
