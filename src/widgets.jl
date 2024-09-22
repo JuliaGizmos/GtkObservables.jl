@@ -141,7 +141,7 @@ function slider(range::AbstractRange;
         Gtk4.draw_value(widget,true)
         Gtk4.size_request(widget, 200, -1)
     else
-        adj = Gtk4.GtkAdjustment(widget)
+        adj = Gtk4.adjustment(widget)
         Gtk4.configure!(adj; lower = first(range), upper = last(range), step_increment = step(range))
     end
     Gtk4.value(widget, value)
@@ -171,7 +171,7 @@ end
 # Is calling this `setindex!` too much of a pun?
 function Base.setindex!(s::Slider, (range,value)::Tuple{AbstractRange, Any})
     first(range) <= value <= last(range) || error("$value is not within the span of $range")
-    adj = Gtk4.GtkAdjustment(widget(s))
+    adj = Gtk4.adjustment(widget(s))
     @idle_add Gtk4.configure!(adj; value = value, lower = first(range), upper = last(range), step_increment = step(range))
 end
 Base.setindex!(s::Slider, range::AbstractRange) = setindex!(s, (range, s[]))
@@ -952,7 +952,7 @@ function spinbutton(range::AbstractRange{T};
                           first(range), last(range), step(range))
         Gtk4.size_request(widget, 200, -1)
     else
-        adj = Gtk4.GtkAdjustment(widget)
+        adj = Gtk4.adjustment(widget)
         Gtk4.configure!(adj; lower=first(range), upper=last(range), step_increment=step(range))
     end
     if lowercase(first(orientation)) == 'v'
@@ -982,7 +982,7 @@ end
 # Is calling this `setindex!` too much of a pun?
 function Base.setindex!(s::SpinButton, (range,value)::Tuple{AbstractRange,Any})
     first(range) <= value <= last(range) || error("$value is not within the span of $range")
-    adj = Gtk4.GtkAdjustment(widget(s))
+    adj = Gtk4.adjustment(widget(s))
     Gtk4.configure!(adj; value = value, lower = first(range), upper = last(range), step_increment = step(range))
 end
 Base.setindex!(s::SpinButton, range::AbstractRange) = setindex!(s, (range, s[]))
@@ -1036,7 +1036,7 @@ function cyclicspinbutton(range::AbstractRange{T}, carry_up::Observable{Bool};
         widget = GtkSpinButton(first(range) - step(range), last(range) + step(range), step(range))
         Gtk4.size_request(widget, 200, -1)
     else
-        adj = Gtk4.GtkAdjustment(widget)
+        adj = Gtk4.adjustment(widget)
         Gtk4.configure!(adj; lower = first(range) - step(range), upper = last(range) + step(range), step_increment = step(range))
     end
     if lowercase(first(orientation)) == 'v'
