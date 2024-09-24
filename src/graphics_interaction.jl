@@ -139,25 +139,27 @@ function MouseButton(pos::XY{U}, button::Integer, clicktype, modifiers, n_press=
     MouseButton{U}(pos, UInt32(button), clicktype, modifiers, n_press)
 end
 
-function _get_button(modifiers, e::GtkEventController)
-    if modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
-        return 1
-    elseif modifiers & Gtk4.ModifierType_BUTTON2_MASK == Gtk4.ModifierType_BUTTON2_MASK
-        return 2
-    elseif modifiers & Gtk4.ModifierType_BUTTON3_MASK == Gtk4.ModifierType_BUTTON3_MASK
-        return 3        
-    else
-        return isa(e, GtkGestureSingle) ? Gtk4.current_button(e) : 0
-    end
-end
+_get_button(e::GtkGestureSingle) = Gtk4.current_button(e)
+_get_button(e::GtkEventController) = 0
 
+# `modifier_ref` argument is only used for testing purposes (no other way was found to simulate button events)
 function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::Float64, clicktype, modifier_ref=nothing) where U<:CairoUnit
     modifiers = if modifier_ref === nothing
         Gtk4.current_event_state(e)
     else
         modifier_ref[]
     end
-    button = _get_button(modifiers,e)
+    button = if modifier_ref === nothing
+        _get_button(e)
+    elseif modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
+        1
+    elseif modifiers & Gtk4.ModifierType_BUTTON2_MASK == Gtk4.ModifierType_BUTTON2_MASK
+        2
+    elseif modifiers & Gtk4.ModifierType_BUTTON3_MASK == Gtk4.ModifierType_BUTTON3_MASK
+        3
+    else
+        0
+    end
     w = widget(e)
     MouseButton{U}(XY{U}(w, x, y), UInt32(button), clicktype, modifiers, n_press)
 end
