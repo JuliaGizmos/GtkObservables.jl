@@ -106,7 +106,7 @@ using PrecompileTools
         dtw=nothing
 
         # canvas
-        try # if we don't have a display, this might fail?
+        #try # if we don't have a display, this might fail?
             for U in (UserUnit, DeviceUnit)
                 c = canvas(U, 100, 100; init_back=true)
                 fill!(c, RGB(0, 0, 0))
@@ -156,9 +156,9 @@ using PrecompileTools
             signal_emit(scrollcontroller(c), "scroll", Bool,
                         convert(Float64, UserUnit(8)), convert(Float64, UserUnit(4)))
             c=nothing
-        catch
-            @warn("GtkObservables canvas precompile code failure")
-        end
+        #catch
+        #    @warn("GtkObservables canvas precompile code failure")
+        #end
     end
     Gtk4.GLib.stop_main_loop(true)
 end

@@ -16,7 +16,10 @@ import Cairo
 using Gtk4: GtkScaleLeaf, GtkCheckButtonLeaf, GtkToggleButtonLeaf,
     GtkButtonLeaf, GtkSpinButtonLeaf, GtkColorButtonLeaf,
     GtkEntryLeaf, GtkTextViewLeaf, GtkComboBoxTextLeaf,
-    GtkLabelLeaf, GtkProgressBarLeaf
+    GtkLabelLeaf, GtkProgressBarLeaf, _GtkWidgetClass, _GrapheneRect
+import Gtk4: draw
+using Gtk4.GLib: GObject, _GObjectClass, _GTypeInfo
+using Gtk4.GLib
 # Constants for event analysis
 const SHIFT = Gtk4.ModifierType_SHIFT_MASK
 const CONTROL = Gtk4.ModifierType_CONTROL_MASK
@@ -87,6 +90,7 @@ end
 include("widgets.jl")
 include("extrawidgets.jl")
 include("graphics_interaction.jl")
+include("layeredcanvas.jl")
 include("rubberband.jl")
 
 ## More convenience functions

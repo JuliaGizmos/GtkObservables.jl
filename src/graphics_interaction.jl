@@ -229,10 +229,10 @@ struct MouseHandler{U<:CairoUnit}
     motion::Observable{MouseButton{U}}
     scroll::Observable{MouseScroll{U}}
     ids::Vector{Culong}   # for disabling any of these callbacks
-    widget::GtkCanvas
+    widget::GtkWidget
     modifier_ref::Union{Nothing,Ref{Gtk4.ModifierType}}
 
-    function MouseHandler{U}(canvas::GtkCanvas, modifier_ref=nothing) where U<:CairoUnit
+    function MouseHandler{U}(canvas::GtkWidget, modifier_ref=nothing) where U<:CairoUnit
         pos = XY(U(-1), U(-1))
         btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
         scroll = MouseScroll(pos, UP, SHIFT)
