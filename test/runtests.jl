@@ -423,7 +423,7 @@ end
         sleep(0.1)
         @test lastevent[] == "release"
     else
-        @warn("Didn't find click controller, some tests skipped!")
+        @warn("Didn't find click controller, some tests skipped.")
     end
     ec = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
     signal_emit(ec, "scroll", Bool, 1.0, 0.0)
@@ -460,12 +460,16 @@ end
     yield()
     @test !popuptriggered[]
     ec = find_gesture_click(widget(c))
-    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
-    yield()
-    @test !popuptriggered[]
-    modifier[] = Gtk4.ModifierType_BUTTON3_MASK
-    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
-    @test popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
+    if ec !== nothing
+        signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
+        yield()
+        @test !popuptriggered[]
+        modifier[] = Gtk4.ModifierType_BUTTON3_MASK
+        signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
+        @test popuptriggered[]   # this requires simulating a right click, which might require constructing a GdkEvent structure
+    else
+        @warn("Didn't find click controller, some tests skipped.")
+    end
     Gtk4.destroy(win)
 end
 
