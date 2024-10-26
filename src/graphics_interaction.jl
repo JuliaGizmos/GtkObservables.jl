@@ -229,29 +229,34 @@ struct MouseHandler{U<:CairoUnit}
     motion::Observable{MouseButton{U}}
     scroll::Observable{MouseScroll{U}}
     ids::Vector{Culong}   # for disabling any of these callbacks
-    widget::GtkWidget
     modifier_ref::Union{Nothing,Ref{Gtk4.ModifierType}}
-
-    function MouseHandler{U}(canvas::GtkWidget, modifier_ref=nothing) where U<:CairoUnit
+    
+    function MouseHandler{U}(modifier_ref=nothing) where U<:CairoUnit
         pos = XY(U(-1), U(-1))
         btn = MouseButton(pos, 0, BUTTON_PRESS, SHIFT)
         scroll = MouseScroll(pos, UP, SHIFT)
         ids = Vector{Culong}(undef, 0)
-        handler = new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, canvas, modifier_ref)
-        # Create the callbacks
-        g = GtkGestureClick(canvas,0)
-        gm = GtkEventControllerMotion(canvas)
-        gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_HORIZONTAL |
-                                      Gtk4.EventControllerScrollFlags_VERTICAL  |
-                                      Gtk4.EventControllerScrollFlags_DISCRETE , canvas)
-        
-        push!(ids, signal_connect(mousedown_cb, g, "pressed", Nothing, (Int32, Float64, Float64), false, handler))
-        push!(ids, signal_connect(mouseup_cb, g, "released", Nothing, (Int32, Float64, Float64), false, handler))
-        push!(ids, signal_connect(mousemove_cb, gm, "motion", Nothing, (Float64, Float64), false, handler))
-        push!(ids, signal_connect(mousescroll_cb, gs, "scroll", Cint, (Float64, Float64), false, handler))
+        new{U}(Observable(btn), Observable(btn), Observable(btn), Observable(scroll), ids, modifier_ref)
+    end
 
+    function MouseHandler{U}(canvas::GtkWidget, modifier_ref=nothing) where U<:CairoUnit
+        handler = MouseHandler{U}(modifier_ref)
+        _init_mouse_handler(handler, canvas)
         handler
     end
+end
+
+function _init_mouse_handler(handler::MouseHandler, canvas::GtkWidget)
+    # Create the callbacks
+    g = GtkGestureClick(canvas,0)
+    gm = GtkEventControllerMotion(canvas)
+    gs = GtkEventControllerScroll(Gtk4.EventControllerScrollFlags_HORIZONTAL |
+                                  Gtk4.EventControllerScrollFlags_VERTICAL  |
+                                  Gtk4.EventControllerScrollFlags_DISCRETE , canvas)
+    push!(handler.ids, signal_connect(mousedown_cb, g, "pressed", Nothing, (Int32, Float64, Float64), false, handler))
+    push!(handler.ids, signal_connect(mouseup_cb, g, "released", Nothing, (Int32, Float64, Float64), false, handler))
+    push!(handler.ids, signal_connect(mousemove_cb, gm, "motion", Nothing, (Float64, Float64), false, handler))
+    push!(handler.ids, signal_connect(mousescroll_cb, gs, "scroll", Cint, (Float64, Float64), false, handler))
 end
 
 function mousedown_cb(ecp::Ptr, n_press::Int32, x::Float64, y::Float64, handler::MouseHandler{U}) where U

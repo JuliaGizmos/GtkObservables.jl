@@ -1,4 +1,9 @@
+struct GtkGraphicsContext <: GraphicsContext
+end
+
 abstract type Layer end
+
+redraw(l::Layer, val) = Gtk4.reveal(l)
 
 struct FillLayer <: Layer
     color::Observable
@@ -17,10 +22,37 @@ end
 #    println("draw")
 #end
 
-struct CairoLayer <: Layer
+mutable struct CairoLayer <: Layer
+    draw::Union{Function, Nothing}
+    preserved::Vector{Any}
 end
 
-# draw(f, ::CairoLayer, w, h)
+CairoLayer() = CairoLayer(nothing,[])
+
+function draw(layer::CairoLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
+    if layer.draw !== nothing
+        cr = Gtk4.G_.append_cairo(snapshot, Ref(_GrapheneRect(0,0,w,h)))
+        cc = Cairo.CairoContext(Ptr{Nothing}(cr.handle))
+        layer.draw(cc)
+    end
+end
+
+function setfunc(f::F, layer::CairoLayer) where F
+    layer.draw = f
+end
+
+# drawfun should look like `f(cc, sigs...)`
+function Gtk4.draw(drawfun::F, c::CairoLayer, widget::GtkWidget, signals::Observable...) where F
+    setfunc(c) do cc
+        drawfun(cc, map(getindex, signals)...)
+    end
+    drawfunc = onany(signals...) do values...
+        reveal(widget)
+    end
+    push!(c.preserved, drawfunc)
+    drawfunc
+end
+
 
 function layered_canvas_measure(widget::Ptr{GObject}, orientation::Cint, for_size::Cint, minimum::Ptr{Cint}, natural::Ptr{Cint}, minimum_baseline::Ptr{Cint}, natural_baseline::Ptr{Cint})
     unsafe_store!(minimum, Cint(100))
@@ -47,18 +79,20 @@ function layered_canvas_class_init(class::Ptr{_GObjectClass}, user_data)
     nothing
 end
 
-mutable struct LayeredCanvas <: GtkWidget
+mutable struct LayeredCanvas{U} <: GtkWidget
     handle::Ptr{GObject}
     layers::Vector{Layer}
-    #mouse::MouseHandler{U}
+    mouse::MouseHandler{U}
     #action_group::Gtk4.GLib.GSimpleActionGroupLeaf
     #preserved::Vector{Any} # need?
-    function LayeredCanvas(handle::Ptr{GObject}, owns = false)
+    function LayeredCanvas{U}(handle::Ptr{GObject}, owns = false) where U
         if handle == C_NULL
             error("Cannot construct LayeredCanvas with a NULL pointer")
         end
         GLib.gobject_maybe_sink(handle, owns)
-        return gobject_ref(new(handle, Layer[]))
+        canvas = gobject_ref(new(handle, Layer[], MouseHandler{U}()))
+        _init_mouse_handler(canvas.mouse, canvas)
+        canvas
     end
 end
 
@@ -91,9 +125,34 @@ end
 #    #ag = Gtk4.GLib.GSimpleActionGroup()
 #end
 
-function LayeredCanvas()
+function add_layer!(c::LayeredCanvas, l::Layer)
+    push!(c.layers, l)
+    # listen to observables
+end
+
+function LayeredCanvas{U}() where U
     gtype = GLib.g_type(LayeredCanvas)
     h = ccall(("g_object_new", GLib.libgobject), Ptr{GObject}, (UInt64, Ptr{Cvoid}), gtype, C_NULL)
-    LayeredCanvas(h)
+    LayeredCanvas{U}(h)
+end
+
+function XY{U}(w::GtkWidget, x::Float64, y::Float64) where U<:CairoUnit
+    XY{U}(convertunits(U, w, DeviceUnit(x), DeviceUnit(y))...)
+end
+
+Graphics.getgc(lc::LayeredCanvas) = GtkGraphicsContext()
+Graphics.set_coordinates(c::LayeredCanvas, device::BoundingBox, user::BoundingBox) =
+    set_coordinates(getgc(c), device, user)
+Graphics.set_coordinates(c::LayeredCanvas, user::BoundingBox) =
+    set_coordinates(c, BoundingBox(0, Graphics.width(c), 0, Graphics.height(c)), user)
+function Graphics.set_coordinates(c::LayeredCanvas, zr::ZoomRegion)
+    xy = zr.currentview
+    bb = BoundingBox(xy)
+    set_coordinates(c, bb)
+end
+function Graphics.set_coordinates(c::LayeredCanvas, inds::Tuple{AbstractUnitRange,AbstractUnitRange})
+    y, x = inds
+    bb = BoundingBox(first(x)-0.5, last(x)+0.5, first(y)-0.5, last(y)+0.5)
+    set_coordinates(c, bb)
 end
 

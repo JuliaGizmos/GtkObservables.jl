@@ -30,6 +30,7 @@ sigend = on(c.mouse.buttonrelease) do btn
         push!(lines[], newline[])
         newline.val = []
         Observables.notify(lines)
+        println(lines[])
     end
 end
 
