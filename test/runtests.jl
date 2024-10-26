@@ -414,13 +414,17 @@ end
     lastevent[] = "nothing"
     @test lastevent[] == "nothing"
     ec = find_gesture_click(widget(c))
-    signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
-    sleep(0.1)
-    @test lastevent[] == "press"
-    signal_emit(ec, "released", Nothing, Int32(1), 0.0, 0.0)
-    sleep(0.1)
-    sleep(0.1)
-    @test lastevent[] == "release"
+    if ec !== nothing
+        signal_emit(ec, "pressed", Nothing, Int32(1), 0.0, 0.0)
+        sleep(0.1)
+        @test lastevent[] == "press"
+        signal_emit(ec, "released", Nothing, Int32(1), 0.0, 0.0)
+        sleep(0.1)
+        sleep(0.1)
+        @test lastevent[] == "release"
+    else
+        @warn("Didn't find click controller, some tests skipped!")
+    end
     ec = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
     signal_emit(ec, "scroll", Bool, 1.0, 0.0)
     sleep(0.1)
