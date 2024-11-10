@@ -1,4 +1,5 @@
-struct GtkGraphicsContext <: GraphicsContext
+mutable struct GtkGraphicsContext <: GraphicsContext
+    transform::GskTransform
 end
 
 abstract type Layer end
@@ -63,6 +64,7 @@ end
 function layered_canvas_snapshot(widget_ptr::Ptr{GObject}, snapshot_ptr::Ptr{GObject})
     widget = convert(LayeredCanvas, widget_ptr)
     snapshot = convert(GtkSnapshot, snapshot_ptr)
+    Gtk4.G_.transform(snapshot, widget.context.transform)
     w,h = size(widget)
     for l in widget.layers
         draw(l, snapshot, w, h)
@@ -82,6 +84,7 @@ end
 mutable struct LayeredCanvas{U} <: GtkWidget
     handle::Ptr{GObject}
     layers::Vector{Layer}
+    context::GtkGraphicsContext
     mouse::MouseHandler{U}
     #action_group::Gtk4.GLib.GSimpleActionGroupLeaf
     #preserved::Vector{Any} # need?
@@ -90,7 +93,7 @@ mutable struct LayeredCanvas{U} <: GtkWidget
             error("Cannot construct LayeredCanvas with a NULL pointer")
         end
         GLib.gobject_maybe_sink(handle, owns)
-        canvas = gobject_ref(new(handle, Layer[], MouseHandler{U}()))
+        canvas = gobject_ref(new(handle, Layer[], GtkGraphicsContext(GskTransform()), MouseHandler{U}()))
         _init_mouse_handler(canvas.mouse, canvas)
         canvas
     end
@@ -140,11 +143,46 @@ function XY{U}(w::GtkWidget, x::Float64, y::Float64) where U<:CairoUnit
     XY{U}(convertunits(U, w, DeviceUnit(x), DeviceUnit(y))...)
 end
 
-Graphics.getgc(lc::LayeredCanvas) = GtkGraphicsContext()
-Graphics.set_coordinates(c::LayeredCanvas, device::BoundingBox, user::BoundingBox) =
+function Graphics.reset_transform(c::GtkGraphicsContext)
+    c.transform = GskTransform()
+    nothing
+end
+
+function Graphics.scale(c::GtkGraphicsContext, x::Real, y::Real)
+    c.transform = Gtk4.G_.scale(c.transform, x, y)
+    nothing
+end
+
+function Graphics.translate(c::GtkGraphicsContext, x::Real, y::Real)
+    point = Gtk4.Graphene._GraphenePoint(x,y)
+    c.transform = Gtk4.G_.translate(c.transform, Ref(point))
+    nothing
+end
+
+function Graphics.user_to_device!(c::GtkGraphicsContext, p::Vector{Float64})
+    point = Gtk4.Graphene._GraphenePoint(p[1],p[2])
+    point2 = Gtk4.G_.transform_point(c.transform, Ref(point))
+    p[1]=point2.x
+    p[2]=point2.y
+    p
+end
+
+function Graphics.device_to_user!(c::GtkGraphicsContext, p::Vector{Float64})
+    t=Gtk4.G_.invert(c.transform)
+    point = Gtk4.Graphene._GraphenePoint(p[1],p[2])
+    point2 = Gtk4.G_.transform_point(t, Ref(point))
+    p[1]=point2.x
+    p[2]=point2.y
+    p
+end
+
+Graphics.getgc(lc::LayeredCanvas) = lc.context
+function Graphics.set_coordinates(c::LayeredCanvas, device::BoundingBox, user::BoundingBox)
     set_coordinates(getgc(c), device, user)
-Graphics.set_coordinates(c::LayeredCanvas, user::BoundingBox) =
+end
+function Graphics.set_coordinates(c::LayeredCanvas, user::BoundingBox)
     set_coordinates(c, BoundingBox(0, Graphics.width(c), 0, Graphics.height(c)), user)
+end
 function Graphics.set_coordinates(c::LayeredCanvas, zr::ZoomRegion)
     xy = zr.currentview
     bb = BoundingBox(xy)
