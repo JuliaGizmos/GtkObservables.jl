@@ -149,14 +149,14 @@ function MouseButton{U}(e::GtkEventController, n_press::Integer, x::Float64, y::
     else
         modifier_ref[]
     end
-    button = if modifier_ref === nothing
-        _get_button(e)
-    elseif modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
+    button = if modifiers & Gtk4.ModifierType_BUTTON1_MASK == Gtk4.ModifierType_BUTTON1_MASK
         1
     elseif modifiers & Gtk4.ModifierType_BUTTON2_MASK == Gtk4.ModifierType_BUTTON2_MASK
         2
     elseif modifiers & Gtk4.ModifierType_BUTTON3_MASK == Gtk4.ModifierType_BUTTON3_MASK
         3
+    elseif modifier_ref === nothing
+        _get_button(e)
     else
         0
     end
