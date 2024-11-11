@@ -4,31 +4,49 @@ end
 
 abstract type Layer end
 
-redraw(l::Layer, val) = Gtk4.reveal(l)
+layerchanged(layer) = nothing
+
+#redraw(l::Layer, val) = Gtk4.reveal(l)
+
+## FillLayer: fills the widget with a color
 
 struct FillLayer <: Layer
     color::Observable
 end
+
+FillLayer(c::Color) = FillLayer(Observable(c))
 
 function draw(layer::FillLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     c = convert(GdkRGBA,layer.color[])
     Gtk4.G_.append_color(snapshot, c, Ref(_GrapheneRect(0,0,w,h)))
 end
 
+layerchanged(layer::FillLayer) = layer.color
+
+## ImageLayer: draws an image
+
 struct ImageLayer <: Layer
-    imgo::Observable  # ?
+    imgo::Observable
 end
 
-#function draw(layer::ImageLayer, w, h)
-#    println("draw")
-#end
+function draw(layer::ImageLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
+    texture = GdkMemoryTexture(layer.imgo[])
+    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,w,h)))
+end
+
+layerchanged(layer::ImageLayer) = layer.imgo
+
+## CairoLayer: draws using Cairo
 
 mutable struct CairoLayer <: Layer
     draw::Union{Function, Nothing}
     preserved::Vector{Any}
+    changed::Observable{Nothing}
 end
 
-CairoLayer() = CairoLayer(nothing,[])
+CairoLayer() = CairoLayer(nothing,[],Observable(nothing))
+
+layerchanged(layer::CairoLayer) = layer.changed
 
 function draw(layer::CairoLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     if layer.draw !== nothing
@@ -43,17 +61,18 @@ function setfunc(f::F, layer::CairoLayer) where F
 end
 
 # drawfun should look like `f(cc, sigs...)`
-function Gtk4.draw(drawfun::F, c::CairoLayer, widget::GtkWidget, signals::Observable...) where F
+function Gtk4.draw(drawfun::F, c::CairoLayer, signals::Observable...) where F
     setfunc(c) do cc
         drawfun(cc, map(getindex, signals)...)
     end
     drawfunc = onany(signals...) do values...
-        reveal(widget)
+        notify(c.changed)
     end
     push!(c.preserved, drawfunc)
     drawfunc
 end
 
+## layered canvas widget implementation
 
 function layered_canvas_measure(widget::Ptr{GObject}, orientation::Cint, for_size::Cint, minimum::Ptr{Cint}, natural::Ptr{Cint}, minimum_baseline::Ptr{Cint}, natural_baseline::Ptr{Cint})
     unsafe_store!(minimum, Cint(100))
@@ -131,6 +150,11 @@ end
 function add_layer!(c::LayeredCanvas, l::Layer)
     push!(c.layers, l)
     # listen to observables
+    if layerchanged(l) !== nothing
+        on(layerchanged(l)) do _
+            Gtk4.reveal(c)
+        end
+    end
 end
 
 function LayeredCanvas{U}() where U
@@ -142,6 +166,8 @@ end
 function XY{U}(w::GtkWidget, x::Float64, y::Float64) where U<:CairoUnit
     XY{U}(convertunits(U, w, DeviceUnit(x), DeviceUnit(y))...)
 end
+
+## Graphics interface
 
 function Graphics.reset_transform(c::GtkGraphicsContext)
     c.transform = GskTransform()
@@ -192,5 +218,73 @@ function Graphics.set_coordinates(c::LayeredCanvas, inds::Tuple{AbstractUnitRang
     y, x = inds
     bb = BoundingBox(first(x)-0.5, last(x)+0.5, first(y)-0.5, last(y)+0.5)
     set_coordinates(c, bb)
+end
+
+function init_zoom_rubberband(canvas::LayeredCanvas{U},
+                              zr::Observable{ZoomRegion{T}},
+                              @nospecialize(initiate::Function) = zrb_init_default,
+                              @nospecialize(reset::Function) = zrb_reset_default,
+                              minpixels::Integer = 2) where {U,T}
+    enabled = Observable(true)
+    active = Observable(false)
+    function update_zr(widget, bb)
+        active[] = false
+        fv = zr[].fullview
+        zr[] = ZoomRegion(fv, XY(interior(bb.xmin..bb.xmax, fv.x),
+                                 interior(bb.ymin..bb.ymax, fv.y))
+                          )
+        nothing
+    end
+    rb = RubberBand(XY{U}(-1,-1), XY{U}(-1,-1), false, minpixels)
+    cairolayer = GtkObservables.CairoLayer()
+    add_layer!(canvas, cairolayer)
+    draw(cairolayer, enabled, active) do ctx, enabled, active
+        if enabled && active
+            # draw the rubberband
+            x1, y1 = rb.pos1.x, rb.pos1.y
+            x2, y2 = rb.pos2.x, rb.pos2.y
+            rectangle(ctx, x1, y1, x2 - x1, y2 - y1)
+        end
+    end
+    init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
+        if enabled[]
+            if initiate(btn)
+                active[] = true
+                rb.pos1 = rb.pos2 = btn.position
+            elseif reset(btn)
+                active[] = false  # double-clicks need to cancel the previous single-click
+                zr[] = GtkObservables.reset(zr[])
+            end
+        end
+        nothing
+    end
+    drag = on(canvas.mouse.motion; weak=true) do btn::MouseButton{U}
+        if active[]
+            btn.button == 0 && return nothing
+            rb.moved = true
+            rb.pos2 = btn.position
+            reveal(canvas)
+        end
+    end
+    finish = on(canvas.mouse.buttonrelease; weak=true) do btn::MouseButton{U}
+        if active[]
+            btn.button == 0 && return nothing
+            active[] = false
+            #rubberband_stop(canvas, rb, btn, ctxcopy[], update_zr)
+            if rb.moved
+                pos = btn.position
+                x, y = pos.x, pos.y
+                x1, y1 = rb.pos1.x, rb.pos1.y
+                xd, yd = convertunits(DeviceUnit, r, x, y)
+                x1d, y1d = convertunits(DeviceUnit, r, x1, y1)
+                if abs(x1d-xd) > rb.minpixels || abs(y1d-yd) > rb.minpixels
+                    # It moved sufficiently, let's execute the callback
+                    bb = BoundingBox(min(x1,x), max(x1,x), min(y1,y), max(y1,y))
+                    update_zr(canvas, bb)
+                end
+            end
+        end
+    end
+    Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 

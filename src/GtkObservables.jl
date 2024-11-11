@@ -45,6 +45,7 @@ export observable, widget, frame
 # Zoom/pan
 export ZoomRegion, zoom, pan_x, pan_y, init_zoom_rubberband, init_zoom_scroll,
        init_pan_scroll, init_pan_drag
+export add_layer!
 
 # The generic Widget interface
 abstract type Widget end
@@ -90,8 +91,8 @@ end
 include("widgets.jl")
 include("extrawidgets.jl")
 include("graphics_interaction.jl")
-include("layeredcanvas.jl")
 include("rubberband.jl")
+include("layeredcanvas.jl")
 
 ## More convenience functions
 # Containers
