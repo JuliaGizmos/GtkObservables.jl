@@ -13,6 +13,7 @@ using IntervalSets, RoundingIntegers
 # There's a conflict for width, so we have to scope those calls
 import Cairo
 
+using Gtk4.Graphene
 using Gtk4: GtkScaleLeaf, GtkCheckButtonLeaf, GtkToggleButtonLeaf,
     GtkButtonLeaf, GtkSpinButtonLeaf, GtkColorButtonLeaf,
     GtkEntryLeaf, GtkTextViewLeaf, GtkComboBoxTextLeaf,

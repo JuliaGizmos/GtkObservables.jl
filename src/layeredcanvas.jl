@@ -25,8 +25,6 @@ mutable struct LayeredCanvas{U} <: GtkWidget
     end
 end
 
-#redraw(l::Layer, val) = Gtk4.reveal(l)
-
 ## FillLayer: fills the widget with a color
 
 mutable struct FillLayer <: Layer
@@ -38,7 +36,7 @@ FillLayer(c::Color) = FillLayer(nothing, Observable(c))
 
 function draw(layer::FillLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     c = convert(GdkRGBA,layer.color[])
-    Gtk4.G_.append_color(snapshot, c, Ref(_GrapheneRect(0,0,w,h)))
+    Gtk4.G_.append_color(snapshot, c, GrapheneRect(0,0,w,h))
 end
 
 layerchanged(layer::FillLayer) = layer.color
@@ -65,7 +63,7 @@ function draw(layer::ImageLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     # to preserve the "nearest" scaling in the method below, we transform back to device units
     Gtk4.G_.save(snapshot)
     Gtk4.G_.transform(snapshot, Gtk4.G_.invert(layer.canvas.context.transform))
-    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,w,h)))
+    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, GrapheneRect(0,0,w,h))
     Gtk4.G_.restore(snapshot)
 end
 
@@ -89,7 +87,7 @@ function draw(layer::CairoLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
         # in order to allow cairo access to the true device units, we undo our global transform here
         Gtk4.G_.save(snapshot)
         Gtk4.G_.transform(snapshot, Gtk4.G_.invert(layer.canvas.context.transform))
-        cr = Gtk4.G_.append_cairo(snapshot, Ref(_GrapheneRect(0,0,w,h)))
+        cr = Gtk4.G_.append_cairo(snapshot, GrapheneRect(0,0,w,h))
         cc = Cairo.CairoContext(Ptr{Nothing}(cr.handle))
         # apply global transform to cairo context
         set_coordinates(cc, BoundingBox(0, w, 0, h), layer.canvas.user_bbox)
@@ -215,14 +213,14 @@ function Graphics.scale(c::GtkGraphicsContext, x::Real, y::Real)
 end
 
 function Graphics.translate(c::GtkGraphicsContext, x::Real, y::Real)
-    point = Gtk4.Graphene._GraphenePoint(x,y)
-    c.transform = Gtk4.G_.translate(c.transform, Ref(point))
+    point = Gtk4.Graphene.GraphenePoint(x,y)
+    c.transform = Gtk4.G_.translate(c.transform, point)
     nothing
 end
 
 function Graphics.user_to_device!(c::GtkGraphicsContext, p::Vector{Float64})
-    point = Gtk4.Graphene._GraphenePoint(p[1],p[2])
-    point2 = Gtk4.G_.transform_point(c.transform, Ref(point))
+    point = Gtk4.Graphene.GraphenePoint(p[1],p[2])
+    point2 = Gtk4.G_.transform_point(c.transform, point)
     p[1]=point2.x
     p[2]=point2.y
     p
@@ -230,8 +228,8 @@ end
 
 function Graphics.device_to_user!(c::GtkGraphicsContext, p::Vector{Float64})
     t=Gtk4.G_.invert(c.transform)
-    point = Gtk4.Graphene._GraphenePoint(p[1],p[2])
-    point2 = Gtk4.G_.transform_point(t, Ref(point))
+    point = Gtk4.Graphene.GraphenePoint(p[1],p[2])
+    point2 = Gtk4.G_.transform_point(t, point)
     p[1]=point2.x
     p[2]=point2.y
     p
