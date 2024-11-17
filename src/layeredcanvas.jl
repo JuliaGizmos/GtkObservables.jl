@@ -62,7 +62,11 @@ function draw(layer::ImageLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     end
     imgsize = size(layer.imgo[])
     texture = GdkMemoryTexture(layer.imgo[])
-    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,imgsize[2],imgsize[1])))
+    # to preserve the "nearest" scaling in the method below, we transform back to device units
+    Gtk4.G_.save(snapshot)
+    Gtk4.G_.transform(snapshot, Gtk4.G_.invert(layer.canvas.context.transform))
+    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,w,h)))
+    Gtk4.G_.restore(snapshot)
 end
 
 layerchanged(layer::ImageLayer) = layer.imgo
@@ -82,9 +86,15 @@ layerchanged(layer::CairoLayer) = layer.changed
 
 function draw(layer::CairoLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     if layer.draw !== nothing
+        # in order to allow cairo access to the true device units, we undo our global transform here
+        Gtk4.G_.save(snapshot)
+        Gtk4.G_.transform(snapshot, Gtk4.G_.invert(layer.canvas.context.transform))
         cr = Gtk4.G_.append_cairo(snapshot, Ref(_GrapheneRect(0,0,w,h)))
         cc = Cairo.CairoContext(Ptr{Nothing}(cr.handle))
+        # apply global transform to cairo context
+        set_coordinates(cc, BoundingBox(0, w, 0, h), layer.canvas.user_bbox)
         layer.draw(cc)
+        Gtk4.G_.restore(snapshot)
     end
 end
 
@@ -107,6 +117,7 @@ end
 ## layered canvas widget implementation
 
 function layered_canvas_measure(widget::Ptr{GObject}, orientation::Cint, for_size::Cint, minimum::Ptr{Cint}, natural::Ptr{Cint}, minimum_baseline::Ptr{Cint}, natural_baseline::Ptr{Cint})
+    # could preserve aspect here
     unsafe_store!(minimum, Cint(100))
     unsafe_store!(natural, Cint(100))
     nothing
@@ -269,20 +280,7 @@ function init_zoom_rubberband(canvas::LayeredCanvas{U},
     add_layer!(canvas, cairolayer)
     draw(cairolayer, enabled, active) do ctx, enabled2, active2
         if enabled2 && active2
-            # draw the rubberband
-            x1, y1 = rb.pos1.x, rb.pos1.y
-            x2, y2 = rb.pos2.x, rb.pos2.y
-            rectangle(ctx, x1, y1, x2 - x1, y2 - y1)
-            save(ctx)  # this doesn't work because the transform from device units occurs at the snapshot level
-            reset_transform(ctx)
-            set_line_width(ctx, 1)
-            set_dash(ctx, dash, 3.0)
-            set_source_rgb(ctx, 1, 1, 1)
-            stroke_preserve(ctx)
-            set_dash(ctx, dash, 0.0)
-            set_source_rgb(ctx, 0, 0, 0)
-            stroke(ctx)
-            restore(ctx)
+            rb_draw(ctx, rb)
         end
     end
     init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
@@ -309,7 +307,6 @@ function init_zoom_rubberband(canvas::LayeredCanvas{U},
         if active[]
             btn.button == 0 && return nothing
             active[] = false
-            #rubberband_stop(canvas, rb, btn, ctxcopy[], update_zr)
             if rb.moved
                 pos = btn.position
                 x, y = pos.x, pos.y
