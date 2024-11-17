@@ -322,3 +322,100 @@ function init_zoom_rubberband(canvas::LayeredCanvas{U},
     Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
 end
 
+function init_zoom_scroll(canvas::LayeredCanvas{U},
+                          zr::Observable{ZoomRegion{T}},
+                          @nospecialize(filter::Function) = evt->(evt.modifiers & CONTROL) == CONTROL,
+                          focus::Symbol = :pointer,
+                          factor = 2.0,
+                          flip = false) where {U,T}
+    focus == :pointer || focus == :center || error("focus must be :pointer or :center")
+    enabled = Observable(true)
+    zm = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
+        if enabled[] && filter(event)
+            s = factor
+            if event.direction == UP
+                s = 1/s
+            end
+            if flip
+                s = 1/s
+            end
+            if focus === :pointer
+                setindex!(zr, zoom(zr[], s, canvas.mouse.motion[].position))
+            else
+                setindex!(zr, zoom(zr[], s))
+            end
+        end
+    end
+    Dict{String,Any}("enabled"=>enabled, "zoom"=>zm)
+end
+
+function init_pan_scroll(canvas::LayeredCanvas{U},
+                         zr::Observable{ZoomRegion{T}},
+                         @nospecialize(filter_x::Function) = evt->(evt.modifiers & SHIFT) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
+                         @nospecialize(filter_y::Function) = evt->(evt.modifiers & SHIFT) == 0 && (evt.direction == UP || evt.direction == DOWN),
+                         xpanflip = false,
+                         ypanflip  = false) where {U,T}
+    enabled = Observable(true)
+    pan = on(canvas.mouse.scroll; weak=true) do event::MouseScroll{U}
+        if enabled[]
+            if event.modifiers & CONTROL == CONTROL
+            # filter out zoom events
+            # TODO: figure out how to handle custom filters -- this will fail if the user
+            # sets a modifier other than CONTROL to do zoom
+                return nothing
+            end
+            s = 0.1*scrollpm(event.direction)
+            if filter_x(event)
+                setindex!(zr, pan_x(zr[], s))
+            elseif filter_y(event)
+                setindex!(zr, pan_y(zr[], s))
+            end
+        end
+        return nothing
+    end
+    Dict{String,Any}("enabled"=>enabled, "pan"=>pan)
+end
+
+array(m::_GrapheneMatrix) = [Gtk4.Graphene.G_.get_value(Ref(m),j,i) for i in 0:2, j in 0:2]
+
+function init_pan_drag(canvas::LayeredCanvas{U},
+                       zr::Observable{ZoomRegion{T}},
+                       @nospecialize(initiate::Function) = pandrag_init_default) where {U,T}
+    enabled = Observable(true)
+    active = Observable(false)
+    pos1ref, zr1ref, mtrxref = Ref{XY{DeviceUnit}}(), Ref{XY{ClosedInterval{T}}}(), Ref{Matrix{Float32}}()   # julia#15276
+    init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
+        if initiate(btn)
+            active[] = true
+            # Because the user coordinates will change during panning,
+            # convert to absolute position
+            pos1ref[] = XY(convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)...)
+            zr1ref[] = zr[].currentview
+            m = Gtk4.G_.to_matrix(canvas.context.transform)
+            succ, m_inv = Gtk4.Graphene.G_.inverse(Ref(m))
+            mtrxref[] = array(m_inv)
+        end
+        return nothing
+    end
+    drag = on(canvas.mouse.motion; weak=true) do btn::MouseButton{U}
+        if active[]
+            btn.button == 0 && return nothing
+            pos1, zr1, mtrx = pos1ref[], zr1ref[], mtrxref[]
+            xd, yd = convertunits(DeviceUnit, canvas, btn.position.x, btn.position.y)
+            dx, dy, _ = mtrx*[xd-pos1.x, yd-pos1.y, 1.0]
+            fv = zr[].fullview
+            cv = XY(interior(minimum(zr1.x)-dx..maximum(zr1.x)-dx, fv.x),
+                    interior(minimum(zr1.y)-dy..maximum(zr1.y)-dy, fv.y))
+            if cv != zr[].currentview
+                setindex!(zr, ZoomRegion(fv, cv))
+            end
+        end
+    end
+    finish = on(canvas.mouse.buttonrelease; weak=true) do btn::MouseButton{U}
+        btn.button == 0 && return nothing
+        active[] = false
+        return nothing
+    end
+    Dict{String,Any}("enabled"=>enabled, "active"=>active, "init"=>init, "drag"=>drag, "finish"=>finish)
+end
+
