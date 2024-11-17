@@ -6,15 +6,35 @@ abstract type Layer end
 
 layerchanged(layer) = nothing
 
+mutable struct LayeredCanvas{U} <: GtkWidget
+    handle::Ptr{GObject}
+    layers::Vector{Layer}
+    context::GtkGraphicsContext
+    mouse::MouseHandler{U}
+    user_bbox::Union{Nothing,BoundingBox}
+    #action_group::Gtk4.GLib.GSimpleActionGroupLeaf
+    #preserved::Vector{Any} # need?
+    function LayeredCanvas{U}(handle::Ptr{GObject}, owns = false) where U
+        if handle == C_NULL
+            error("Cannot construct LayeredCanvas with a NULL pointer")
+        end
+        GLib.gobject_maybe_sink(handle, owns)
+        canvas = gobject_ref(new(handle, Layer[], GtkGraphicsContext(GskTransform()), MouseHandler{U}(), nothing))
+        _init_mouse_handler(canvas.mouse, canvas)
+        canvas
+    end
+end
+
 #redraw(l::Layer, val) = Gtk4.reveal(l)
 
 ## FillLayer: fills the widget with a color
 
-struct FillLayer <: Layer
+mutable struct FillLayer <: Layer
+    canvas::Union{Nothing,LayeredCanvas}
     color::Observable
 end
 
-FillLayer(c::Color) = FillLayer(Observable(c))
+FillLayer(c::Color) = FillLayer(nothing, Observable(c))
 
 function draw(layer::FillLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     c = convert(GdkRGBA,layer.color[])
@@ -25,13 +45,24 @@ layerchanged(layer::FillLayer) = layer.color
 
 ## ImageLayer: draws an image
 
-struct ImageLayer <: Layer
+mutable struct ImageLayer <: Layer
+    canvas::Union{Nothing,LayeredCanvas}
     imgo::Observable
 end
 
+ImageLayer() = ImageLayer(nothing, Observable(nothing))
+
+function set_image!(layer::ImageLayer, imgo::Observable)
+    layer.imgo = imgo
+end
+
 function draw(layer::ImageLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
+    if isnothing(layer.imgo[])
+        return
+    end
+    imgsize = size(layer.imgo[])
     texture = GdkMemoryTexture(layer.imgo[])
-    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,w,h)))
+    Gtk4.G_.append_scaled_texture(snapshot, texture, Gtk4.ScalingFilter_NEAREST, Ref(_GrapheneRect(0,0,imgsize[2],imgsize[1])))
 end
 
 layerchanged(layer::ImageLayer) = layer.imgo
@@ -39,12 +70,13 @@ layerchanged(layer::ImageLayer) = layer.imgo
 ## CairoLayer: draws using Cairo
 
 mutable struct CairoLayer <: Layer
+    canvas::Union{Nothing,LayeredCanvas}
     draw::Union{Function, Nothing}
     preserved::Vector{Any}
     changed::Observable{Nothing}
 end
 
-CairoLayer() = CairoLayer(nothing,[],Observable(nothing))
+CairoLayer() = CairoLayer(nothing,nothing,[],Observable(nothing))
 
 layerchanged(layer::CairoLayer) = layer.changed
 
@@ -80,6 +112,14 @@ function layered_canvas_measure(widget::Ptr{GObject}, orientation::Cint, for_siz
     nothing
 end
 
+function layered_canvas_size_allocate(widget_ptr::Ptr{GObject}, w::Cint, h::Cint, baseline::Cint)
+    widget = convert(LayeredCanvas, widget_ptr)
+    if widget.user_bbox !== nothing
+        set_coordinates(widget, BoundingBox(0, w, 0, h), widget.user_bbox)
+    end
+    nothing
+end
+
 function layered_canvas_snapshot(widget_ptr::Ptr{GObject}, snapshot_ptr::Ptr{GObject})
     widget = convert(LayeredCanvas, widget_ptr)
     snapshot = convert(GtkSnapshot, snapshot_ptr)
@@ -95,27 +135,10 @@ function layered_canvas_class_init(class::Ptr{_GObjectClass}, user_data)
     widget_klass_ptr = Ptr{_GtkWidgetClass}(class)
     widget_klass = unsafe_load(widget_klass_ptr)
     widget_klass.snapshot = @cfunction(layered_canvas_snapshot, Cvoid, (Ptr{GObject}, Ptr{GObject}))
+    widget_klass.size_allocate = @cfunction(layered_canvas_size_allocate, Cvoid, (Ptr{GObject}, Cint, Cint, Cint))
     #widget_klass.measure = @cfunction(layered_canvas_measure, Cvoid, (Ptr{GObject}, Cint, Cint, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}))
     unsafe_store!(widget_klass_ptr, widget_klass)
     nothing
-end
-
-mutable struct LayeredCanvas{U} <: GtkWidget
-    handle::Ptr{GObject}
-    layers::Vector{Layer}
-    context::GtkGraphicsContext
-    mouse::MouseHandler{U}
-    #action_group::Gtk4.GLib.GSimpleActionGroupLeaf
-    #preserved::Vector{Any} # need?
-    function LayeredCanvas{U}(handle::Ptr{GObject}, owns = false) where U
-        if handle == C_NULL
-            error("Cannot construct LayeredCanvas with a NULL pointer")
-        end
-        GLib.gobject_maybe_sink(handle, owns)
-        canvas = gobject_ref(new(handle, Layer[], GtkGraphicsContext(GskTransform()), MouseHandler{U}()))
-        _init_mouse_handler(canvas.mouse, canvas)
-        canvas
-    end
 end
 
 function GLib.g_type(::Type{T}) where T <: LayeredCanvas
@@ -149,6 +172,7 @@ end
 
 function add_layer!(c::LayeredCanvas, l::Layer)
     push!(c.layers, l)
+    l.canvas = c
     # listen to observables
     if layerchanged(l) !== nothing
         on(layerchanged(l)) do _
@@ -207,7 +231,12 @@ function Graphics.set_coordinates(c::LayeredCanvas, device::BoundingBox, user::B
     set_coordinates(getgc(c), device, user)
 end
 function Graphics.set_coordinates(c::LayeredCanvas, user::BoundingBox)
-    set_coordinates(c, BoundingBox(0, Graphics.width(c), 0, Graphics.height(c)), user)
+    w = Graphics.width(c)
+    h = Graphics.height(c)
+    if w>0 && h>0  # widget must have a size for this transformation to make any sense
+        set_coordinates(c, BoundingBox(0, w, 0, h), user)
+    end
+    c.user_bbox = user
 end
 function Graphics.set_coordinates(c::LayeredCanvas, zr::ZoomRegion)
     xy = zr.currentview
@@ -238,12 +267,22 @@ function init_zoom_rubberband(canvas::LayeredCanvas{U},
     rb = RubberBand(XY{U}(-1,-1), XY{U}(-1,-1), false, minpixels)
     cairolayer = GtkObservables.CairoLayer()
     add_layer!(canvas, cairolayer)
-    draw(cairolayer, enabled, active) do ctx, enabled, active
-        if enabled && active
+    draw(cairolayer, enabled, active) do ctx, enabled2, active2
+        if enabled2 && active2
             # draw the rubberband
             x1, y1 = rb.pos1.x, rb.pos1.y
             x2, y2 = rb.pos2.x, rb.pos2.y
             rectangle(ctx, x1, y1, x2 - x1, y2 - y1)
+            save(ctx)  # this doesn't work because the transform from device units occurs at the snapshot level
+            reset_transform(ctx)
+            set_line_width(ctx, 1)
+            set_dash(ctx, dash, 3.0)
+            set_source_rgb(ctx, 1, 1, 1)
+            stroke_preserve(ctx)
+            set_dash(ctx, dash, 0.0)
+            set_source_rgb(ctx, 0, 0, 0)
+            stroke(ctx)
+            restore(ctx)
         end
     end
     init = on(canvas.mouse.buttonpress; weak=true) do btn::MouseButton{U}
@@ -275,8 +314,8 @@ function init_zoom_rubberband(canvas::LayeredCanvas{U},
                 pos = btn.position
                 x, y = pos.x, pos.y
                 x1, y1 = rb.pos1.x, rb.pos1.y
-                xd, yd = convertunits(DeviceUnit, r, x, y)
-                x1d, y1d = convertunits(DeviceUnit, r, x1, y1)
+                xd, yd = convertunits(DeviceUnit, canvas, x, y)
+                x1d, y1d = convertunits(DeviceUnit, canvas, x1, y1)
                 if abs(x1d-xd) > rb.minpixels || abs(y1d-yd) > rb.minpixels
                     # It moved sufficiently, let's execute the callback
                     bb = BoundingBox(min(x1,x), max(x1,x), min(y1,y), max(y1,y))
