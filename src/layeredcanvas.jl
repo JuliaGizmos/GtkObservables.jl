@@ -114,13 +114,6 @@ end
 
 ## layered canvas widget implementation
 
-function layered_canvas_measure(widget::Ptr{GObject}, orientation::Cint, for_size::Cint, minimum::Ptr{Cint}, natural::Ptr{Cint}, minimum_baseline::Ptr{Cint}, natural_baseline::Ptr{Cint})
-    # could preserve aspect here
-    unsafe_store!(minimum, Cint(100))
-    unsafe_store!(natural, Cint(100))
-    nothing
-end
-
 function layered_canvas_size_allocate(widget_ptr::Ptr{GObject}, w::Cint, h::Cint, baseline::Cint)
     widget = convert(LayeredCanvas, widget_ptr)
     if widget.user_bbox !== nothing
@@ -145,7 +138,6 @@ function layered_canvas_class_init(class::Ptr{_GObjectClass}, user_data)
     widget_klass = unsafe_load(widget_klass_ptr)
     widget_klass.snapshot = @cfunction(layered_canvas_snapshot, Cvoid, (Ptr{GObject}, Ptr{GObject}))
     widget_klass.size_allocate = @cfunction(layered_canvas_size_allocate, Cvoid, (Ptr{GObject}, Cint, Cint, Cint))
-    #widget_klass.measure = @cfunction(layered_canvas_measure, Cvoid, (Ptr{GObject}, Cint, Cint, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}, Ptr{Cint}))
     unsafe_store!(widget_klass_ptr, widget_klass)
     nothing
 end
@@ -172,12 +164,6 @@ function GLib.g_type(::Type{T}) where T <: LayeredCanvas
         return ngt
     end
 end
-
-#function LayeredCanvas(handle::Ptr{GObject})
-#    LayeredCanvas(handle, Layer[])
-#    #mouse = MouseHandler{U}(modifier_ref)
-#    #ag = Gtk4.GLib.GSimpleActionGroup()
-#end
 
 function add_layer!(c::LayeredCanvas, l::Layer)
     push!(c.layers, l)
