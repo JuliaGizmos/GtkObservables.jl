@@ -126,12 +126,12 @@ Graphics.set_coordinates(c::Union{GtkCanvas,Canvas}, device::BoundingBox, user::
     set_coordinates(getgc(c)::Cairo.CairoContext, device, user)
 Graphics.set_coordinates(c::Union{GtkCanvas,Canvas}, user::BoundingBox) =
     set_coordinates(c, BoundingBox(0, Graphics.width(c), 0, Graphics.height(c)), user)
-function Graphics.set_coordinates(c::Union{GraphicsContext,Canvas,GtkCanvas}, zr::ZoomRegion)
+function Graphics.set_coordinates(c::Union{GraphicsContext,Canvas,GtkCanvas,LayeredCanvas}, zr::ZoomRegion)
     xy = zr.currentview
     bb = BoundingBox(xy)
     set_coordinates(c, bb)
 end
-function Graphics.set_coordinates(c::Union{Canvas,GtkCanvas}, inds::Tuple{AbstractUnitRange,AbstractUnitRange})
+function Graphics.set_coordinates(c::Union{Canvas,GtkCanvas,LayeredCanvas}, inds::Tuple{AbstractUnitRange,AbstractUnitRange})
     y, x = inds
     bb = BoundingBox(first(x)-0.5, last(x)+0.5, first(y)-0.5, last(y)+0.5)
     set_coordinates(c, bb)

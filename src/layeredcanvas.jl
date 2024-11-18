@@ -247,16 +247,6 @@ function Graphics.set_coordinates(c::LayeredCanvas, user::BoundingBox)
     end
     c.user_bbox = user
 end
-function Graphics.set_coordinates(c::LayeredCanvas, zr::ZoomRegion)
-    xy = zr.currentview
-    bb = BoundingBox(xy)
-    set_coordinates(c, bb)
-end
-function Graphics.set_coordinates(c::LayeredCanvas, inds::Tuple{AbstractUnitRange,AbstractUnitRange})
-    y, x = inds
-    bb = BoundingBox(first(x)-0.5, last(x)+0.5, first(y)-0.5, last(y)+0.5)
-    set_coordinates(c, bb)
-end
 
 function init_zoom_rubberband(canvas::LayeredCanvas{U},
                               zr::Observable{ZoomRegion{T}},
@@ -393,7 +383,7 @@ function init_pan_drag(canvas::LayeredCanvas{U},
             zr1ref[] = zr[].currentview
             m = Gtk4.G_.to_matrix(canvas.context.transform)
             succ, m_inv = Gtk4.Graphene.G_.inverse(Ref(m))
-            mtrxref[] = array(m_inv)
+            succ && (mtrxref[] = array(m_inv))
         end
         return nothing
     end
