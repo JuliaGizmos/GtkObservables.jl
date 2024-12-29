@@ -29,7 +29,7 @@ At present, this slider is not affiliated with any window. Let's
 create one and add the slider to the window. We'll put it inside a
 `Box` so that we can later add more things to this GUI (this
 illustrates usage of some of
-[Gtk's layout tools](https://juliagtk.github.io/Gtk4.jl/dev/manual/layout/):
+[Gtk4's layout tools](https://juliagtk.github.io/Gtk4.jl/dev/manual/layout/):
 
 ```jldoctest demo1
 julia> win = GtkWindow("Testing"); win[] = bx = GtkBox(:v);  # a window containing a vertical Box for layout
@@ -73,6 +73,11 @@ end
 
 
 Now if you check the window, you'll see that the slider is at 1.
+
+Note: The `slider` function used above to construct a slider widget by default does not
+snap to elements in the provided range (except in some circumstances). By setting
+the keyword argument `snap` to `true`, the `GtkScale` should reliably snap to
+elements of the range.
 
 Realistic GUIs may have many different widgets. Let's add a second way
 to adjust the value of that observable, by allowing the user to type a
