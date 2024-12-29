@@ -77,7 +77,7 @@ Now if you check the window, you'll see that the slider is at 1.
 Note: The `slider` function used above to construct a slider widget by default does not
 snap to elements in the provided range (except in some circumstances). By setting
 the keyword argument `snap` to `true`, the `GtkScale` should reliably snap to
-elements of the range.
+elements of the range. This does not affect observable's `setindex!` method.
 
 Realistic GUIs may have many different widgets. Let's add a second way
 to adjust the value of that observable, by allowing the user to type a
