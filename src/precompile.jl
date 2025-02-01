@@ -1,6 +1,7 @@
 using PrecompileTools
 
 @setup_workload begin
+if Gtk4.initialized[]
     buttoncontroller(c) = Gtk4.find_controller(widget(c), GtkGestureClick)
     motioncontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
     scrollcontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
@@ -161,6 +162,7 @@ using PrecompileTools
         end
     end
     Gtk4.GLib.stop_main_loop(true)
+end
 end
 
 empty!(_ref_dict)  # bandaid until reffing is sorted out
