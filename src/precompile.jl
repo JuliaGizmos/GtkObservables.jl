@@ -1,7 +1,7 @@
 using PrecompileTools
 
 @setup_workload begin
-    if !Gtk4.G_.is_initialized()
+    if !Gtk4.initialized[]
         @warn("GtkObservables precompile failed: Gtk4 was not initialized.")
         return
     end
