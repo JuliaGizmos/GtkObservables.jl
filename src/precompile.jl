@@ -1,7 +1,10 @@
 using PrecompileTools
 
 @setup_workload begin
-if Gtk4.initialized[]
+    if !Gtk4.G_.is_initialized()
+        @warn("GtkObservables precompile failed: Gtk4 was not initialized.")
+        return
+    end
     buttoncontroller(c) = Gtk4.find_controller(widget(c), GtkGestureClick)
     motioncontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerMotion)
     scrollcontroller(c) = Gtk4.find_controller(widget(c), GtkEventControllerScroll)
@@ -162,7 +165,6 @@ if Gtk4.initialized[]
         end
     end
     Gtk4.GLib.stop_main_loop(true)
-end
 end
 
 empty!(_ref_dict)  # bandaid until reffing is sorted out
