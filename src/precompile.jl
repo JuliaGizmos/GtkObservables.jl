@@ -2,7 +2,7 @@ using PrecompileTools
 
 @setup_workload begin
     if !Gtk4.initialized[]
-        @warn("GtkObservables precompile skipped: Gtk4 was not initialized.")
+        @warn("GtkObservables precompile skipped: Gtk4 could not be initialized (are you on a headless system?)")
         return
     end
     buttoncontroller(c) = Gtk4.find_controller(widget(c), GtkGestureClick)
