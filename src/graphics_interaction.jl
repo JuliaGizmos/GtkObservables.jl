@@ -105,6 +105,8 @@ Base.convert(::Type{XY{T}}, xy::XY) where {T} = XY(T(xy.x), T(xy.y))
 Base.:+(xy1::XY{T}, xy2::XY{T}) where {T} = XY{T}(xy1.x+xy2.x,xy1.y+xy2.y)
 Base.:-(xy1::XY{T}, xy2::XY{T}) where {T} = XY{T}(xy1.x-xy2.x,xy1.y-xy2.y)
 
+Base.getindex(p::XY, i::Int) = i == 1 ? p.x : i == 2 ? p.y : throw(ArgumentError("must be 1 or 2, got $i"))
+
 """
     MouseButton(position, button, clicktype, modifiers, n_press=1)
 
