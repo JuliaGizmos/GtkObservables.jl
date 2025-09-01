@@ -16,7 +16,7 @@ Base.convert(::Type{T}, x::T) where {T<:CairoUnit} = x
 (::Type{T})(x::CairoUnit) where T<:Real = T(x.val)
 
 # Ambiguity resolution
-Bool(x::CairoUnit) = Bool(x.val)
+Base.Bool(x::CairoUnit) = Bool(x.val)
 
 # The next three are for ambiguity resolution
 Base.promote_rule(::Type{Bool}, ::Type{U}) where {U<:CairoUnit} = Float64
