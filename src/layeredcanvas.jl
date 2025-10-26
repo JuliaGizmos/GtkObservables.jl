@@ -138,21 +138,9 @@ function GLib.g_type(::Type{T}) where T <: LayeredCanvas
     if gt > 0
         return gt
     else
-        base_gtype = GLib.g_type(GtkWidget)
-        tq=GLib.G_.type_query(base_gtype)
-        typeinfo = _GTypeInfo(tq.class_size,
-                        C_NULL,   # base_init
-                        C_NULL,   # base_finalize
-                        @cfunction(layered_canvas_class_init, Cvoid, (Ptr{_GObjectClass}, Ptr{Cvoid})),
-                        C_NULL,   # class_finalize
-                        C_NULL,   # class_data
-                        tq.instance_size,
-                        0,        # n_preallocs
-                        C_NULL,   # instance_init
-                        C_NULL)   # value_table
-        ngt = GLib.G_.type_register_static(base_gtype,:LayeredCanvas,Ref(typeinfo),GLib.TypeFlags_FINAL)
+        object_class_init_cfunc = @cfunction(layered_canvas_class_init, Cvoid, (Ptr{_GObjectClass}, Ptr{Cvoid}))
         GLib.gtype_wrappers[:LayeredCanvas] = LayeredCanvas
-        return ngt
+        return GLib.register_subtype(GtkWidget, :LayeredCanvas, object_class_init_cfunc)
     end
 end
 
@@ -172,9 +160,7 @@ function set_bgcolor!(c::LayeredCanvas, color::Color)
 end
 
 function LayeredCanvas{U}() where U
-    gtype = GLib.g_type(LayeredCanvas)
-    h = ccall(("g_object_new", GLib.libgobject), Ptr{GObject}, (UInt64, Ptr{Cvoid}), gtype, C_NULL)
-    LayeredCanvas{U}(h)
+    Gtk4.GLib.gobject_new(LayeredCanvas{U})  # does GLib need to be aware of the parameter here?
 end
 
 function XY{U}(w::GtkWidget, x::Float64, y::Float64) where U<:CairoUnit
