@@ -12,6 +12,7 @@ mutable struct LayeredCanvas{U} <: GtkWidget
     context::GtkGraphicsContext
     mouse::MouseHandler{U}
     user_bbox::Union{Nothing,BoundingBox}
+    bgcolor::Observable
     #action_group::Gtk4.GLib.GSimpleActionGroupLeaf
     #preserved::Vector{Any} # need?
     function LayeredCanvas{U}(handle::Ptr{GObject}, owns = false) where U
@@ -19,27 +20,14 @@ mutable struct LayeredCanvas{U} <: GtkWidget
             error("Cannot construct LayeredCanvas with a NULL pointer")
         end
         GLib.gobject_maybe_sink(handle, owns)
-        canvas = gobject_ref(new(handle, Layer[], GtkGraphicsContext(GskTransform()), MouseHandler{U}(), nothing))
+        canvas = gobject_ref(new(handle, Layer[], GtkGraphicsContext(GskTransform()), MouseHandler{U}(), nothing, Observable{Any}(nothing)))
         _init_mouse_handler(canvas.mouse, canvas)
+        on(canvas.bgcolor) do _
+            Gtk4.reveal(canvas)
+        end
         canvas
     end
 end
-
-## FillLayer: fills the widget with a color
-
-mutable struct FillLayer <: Layer
-    canvas::Union{Nothing,LayeredCanvas}
-    color::Observable
-end
-
-FillLayer(c::Color) = FillLayer(nothing, Observable(c))
-
-function draw(layer::FillLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
-    c = convert(GdkRGBA,layer.color[])
-    Gtk4.G_.append_color(snapshot, c, GrapheneRect(0,0,w,h))
-end
-
-layerchanged(layer::FillLayer) = layer.color
 
 ## ImageLayer: draws an image
 
@@ -58,7 +46,6 @@ function draw(layer::ImageLayer, snapshot::GtkSnapshot, w::Integer, h::Integer)
     if isnothing(layer.imgo[])
         return
     end
-    imgsize = size(layer.imgo[])
     texture = GdkMemoryTexture(layer.imgo[])
     # to preserve the "nearest" scaling in the method below, we transform back to device units
     Gtk4.G_.save(snapshot)
@@ -127,6 +114,10 @@ function layered_canvas_snapshot(widget_ptr::Ptr{GObject}, snapshot_ptr::Ptr{GOb
     snapshot = convert(GtkSnapshot, snapshot_ptr)
     Gtk4.G_.transform(snapshot, widget.context.transform)
     w,h = size(widget)
+    if widget.bgcolor[] !== nothing
+        c = convert(GdkRGBA,widget.bgcolor[])
+        Gtk4.G_.append_color(snapshot, c, GrapheneRect(0,0,w,h))
+    end
     for l in widget.layers
         draw(l, snapshot, w, h)
     end
@@ -174,6 +165,10 @@ function add_layer!(c::LayeredCanvas, l::Layer)
             Gtk4.reveal(c)
         end
     end
+end
+
+function set_bgcolor!(c::LayeredCanvas, color::Color)
+    c.bgcolor[] = color
 end
 
 function LayeredCanvas{U}() where U
