@@ -95,38 +95,65 @@ struct Slider{T<:Number} <: InputWidget{T}
     observable::Observable{T}
     widget::GtkScaleLeaf
     id::Culong
+    snap_handler_id::Ref{Culong}
     preserved::Vector{Any}
 
-    function Slider{T}(observable::Observable{T}, widget, id, preserved) where T
-        obj = new{T}(observable, widget, id, preserved)
+    function Slider{T}(observable::Observable{T}, widget, id, snap_id, preserved) where T
+        obj = new{T}(observable, widget, id, snap_id, preserved)
         gc_preserve(widget, obj)
         obj
     end
 end
-Slider(observable::Observable{T}, widget::GtkScale, id, preserved) where {T} =
-    Slider{T}(observable, widget, id, preserved)
+Slider(observable::Observable{T}, widget::GtkScale, id, snap_id, preserved) where {T} =
+    Slider{T}(observable, widget, id, snap_id, preserved)
 
 medianidx(r) = (ax = axes(r)[1]; return (first(ax)+last(ax))÷2)
 # differs from median(r) in that it always returns an element of the range
 medianelement(r::AbstractRange) = r[medianidx(r)]
 
-slider(observable::Observable, widget::GtkScale, id, preserved = []) =
-    Slider(observable, widget, id, preserved)
+# simplified version of function in https://github.com/joshday/SearchSortedNearest.jl
+function searchsortednearest(a, x)
+    i = searchsortedfirst(a, x)
+    if i == 1
+    elseif i > length(a)
+        i = length(a)
+    elseif a[i] == x
+    else
+        i = isless(abs(a[i] - x), abs(a[i - 1] - x)) ? i : i - 1
+    end
+    return i
+end
+
+@guarded Cint(0) function slider_changevalue_cb(ptr::Ptr, scroll, value::Float64, user_data)
+    scale = convert(GtkScale, ptr)
+    r, idr = user_data
+    i = searchsortednearest(r, value)
+    signal_handler_block(scale, idr[])
+    signal_emit(scale, "change-value", Bool, Gtk4.ScrollType(scroll), Float64(r[i]))
+    signal_handler_unblock(scale, idr[])
+    return Cint(1)
+end
+
+
+slider(observable::Observable, widget::GtkScale, id, snap_id, preserved = []) =
+    Slider(observable, widget, id, snap_id, preserved)
 
 """
-    slider(range; widget=nothing, value=nothing, observable=nothing, orientation="horizontal")
+    slider(range; widget=nothing, value=nothing, observable=nothing, orientation="horizontal", snap=false)
 
 Create a slider widget with the specified `range`. Optionally provide:
   - the GtkScale `widget` (by default, creates a new one)
   - the starting `value` (defaults to the median of `range`)
   - the (Observables.jl) `observable` coupled to this slider (by default, creates a new observable)
   - the `orientation` of the slider.
+  - whether to `snap` the slider value to an element of `range`.
 """
 function slider(range::AbstractRange;
                 widget=nothing,
                 value=nothing,
                 observable=nothing,
                 orientation="horizontal",
+                snap=false,
                 syncsig=true,
                 own=nothing)
     obsin = observable
@@ -155,6 +182,11 @@ function slider(range::AbstractRange;
         observable[] = defaultgetter(w)
     end
 
+    ref_snap_id = Ref{Culong}(0)
+    if snap
+        ref_snap_id[] = Gtk4.on_change_value(slider_changevalue_cb, widget, (range,ref_snap_id))
+    end
+
     ## observable -> widget
     preserved = []
     if syncsig
@@ -164,7 +196,7 @@ function slider(range::AbstractRange;
         ondestroy(widget, preserved)
     end
 
-    Slider(observable, widget, id, preserved)
+    Slider(observable, widget, id, ref_snap_id, preserved)
 end
 
 # Adjust the range on a slider

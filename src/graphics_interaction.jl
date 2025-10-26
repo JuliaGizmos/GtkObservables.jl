@@ -5,7 +5,6 @@ abstract type CairoUnit <: Real end
 Base.:+(x::U, y::U) where {U<:CairoUnit} = U(x.val + y.val)
 Base.:-(x::U, y::U) where {U<:CairoUnit} = U(x.val - y.val)
 Base.:<(x::U, y::U) where {U<:CairoUnit} = Bool(x.val < y.val)
-Base.:>(x::U, y::U) where {U<:CairoUnit} = Bool(x.val > y.val)
 Base.abs(x::U) where {U<:CairoUnit} = U(abs(x.val))
 Base.min(x::U, y::U) where {U<:CairoUnit} = U(min(x.val, y.val))
 Base.max(x::U, y::U) where {U<:CairoUnit} = U(max(x.val, y.val))
@@ -16,7 +15,7 @@ Base.convert(::Type{T}, x::T) where {T<:CairoUnit} = x
 (::Type{T})(x::CairoUnit) where T<:Real = T(x.val)
 
 # Ambiguity resolution
-Bool(x::CairoUnit) = Bool(x.val)
+Base.Bool(x::CairoUnit) = Bool(x.val)
 
 # The next three are for ambiguity resolution
 Base.promote_rule(::Type{Bool}, ::Type{U}) where {U<:CairoUnit} = Float64

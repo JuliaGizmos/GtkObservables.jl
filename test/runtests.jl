@@ -142,6 +142,13 @@ Gtk4.GLib.start_main_loop()
     @test s[] == 5
     sleep(0.1)
 
+    # Snap to range element
+    s = slider(0.1:0.05:10.0; snap = true)
+    sleep(0.01)
+    signal_emit(widget(s),"change-value",Bool, Gtk4.ScrollType(0), 0.16)
+    sleep(0.01)
+    @test s[] == 0.15
+
     ## dropdown
     dd = dropdown(("Strawberry", "Vanilla", "Chocolate"))
     @test dd[] === "Strawberry"
