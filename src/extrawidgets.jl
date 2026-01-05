@@ -139,10 +139,12 @@ second widgets in it. You can specify the specific `GtkFrame` widget (useful whe
 function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     zerotime = Dates.Time(0,0,0) # convenient since we'll use it frequently
     b = Gtk4.GtkBuilder(joinpath(@__DIR__, "time.glade"))
-    if observable === nothing
-        observable = Observable(t1) # this is the input observable, we can push! into it to update the widget
+    theobservable = if observable === nothing
+        Observable(t1) # this is the input observable, we can push! into it to update the widget
+    else
+        observable
     end
-    S = map(observable) do x
+    S = map(theobservable) do x
         (Dates.Second(x), x) # crop the seconds from the Time observable, but keep the time for the next (minutes) crop
     end
     M = map(S) do x
@@ -154,12 +156,12 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
         (Dates.Hour(x), x) # last crop, we have the hours now, and the time is kept as well
     end
     t2 = map(last, H) # here is the final time
-    connect_nofire!(observable, t2) # we connect the input and output times so that any update to the resulting time will go into the input observable and actually show on the widgets
+    connect_nofire!(theobservable, t2) # we connect the input and output times so that any update to the resulting time will go into the input observable and actually show on the widgets
     Sint = Observable(Dates.value(first(S[]))) # necessary for now, until range-like Gtk4Observables.widgets can accept other ranges.
     Ssb = spinbutton(-1:60, widget=b["second"], observable=Sint) # allow for values outside the actual range of seconds so that we'll be able to increase and decrease minutes.
     on(Sint; weak=true) do x
         Δ = Dates.Second(x) - first(S[]) # how much did we change by, this should always be ±1
-        new_t = observable[] + Δ # new time
+        new_t = theobservable[] + Δ # new time
         new_t = new_t < zerotime ? zerotime : new_t # julia Time is allowed negative values, here we correct for that
         new_x = Dates.Second(new_t) # new seconds
         push!(S, (new_x, new_t)) # update that specific widget, here the magic begins, this update will cascade down the widget-line...
@@ -172,7 +174,7 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     Msb = spinbutton(-1:60, widget=b["minute"], observable=Mint)
     on(Mint; weak=true) do x
         Δ = Dates.Minute(x) - first(M[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Minute(new_t)
         push!(M, (new_x, new_t))
@@ -185,7 +187,7 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     Hsb = spinbutton(0:23, widget=b["hour"], observable=Hint)
     on(Hint; weak=true) do x
         Δ = Dates.Hour(x) - first(H[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Hour(new_t)
         push!(H, (new_x, new_t))
@@ -195,10 +197,10 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     connect_nofire!(Hint, Hint3)
 
     if widget === nothing
-        return TimeWidget(observable, b["frame"])
+        return TimeWidget(theobservable, b["frame"])
     else
         push!(widget, b["frame"])
-        return TimeWidget(observable, widget)
+        return TimeWidget(theobservable, widget)
     end
 end
 
@@ -214,10 +216,12 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     zerotime = DateTime(0,1,1,0,0,0)
     b = Gtk4.GtkBuilder(joinpath(@__DIR__, "datetime.glade"))
     # the same logic is applied here as for `timewidget`
-    if observable == nothing
-        observable = Observable(t1)
+    theobservable = if observable == nothing
+        Observable(t1)
+    else
+        observable
     end
-    S = map(observable) do x
+    S = map(theobservable) do x
         (Dates.Second(x), x)
     end
     M = map(S) do x
@@ -241,12 +245,12 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
         (Dates.Year(x), x)
     end
     t2 = map(last, y)
-    connect_nofire!(observable, t2)
+    connect_nofire!(theobservable, t2)
     Sint = Observable(Dates.value(first(S[])))
     Ssb = spinbutton(-1:60, widget=b["second"], observable=Sint)
     on(Sint; weak=true) do x
         Δ = Dates.Second(x) - first(S[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Second(new_t)
         push!(S, (new_x, new_t))
@@ -258,7 +262,7 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     Msb = spinbutton(-1:60, widget=b["minute"], observable=Mint)
     on(Mint; weak=true) do x
         Δ = Dates.Minute(x) - first(M[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Minute(new_t)
         push!(M, (new_x, new_t))
@@ -270,7 +274,7 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     Hsb = spinbutton(-1:24, widget=b["hour"], observable=Hint)
     on(Hint; weak=true) do x
         Δ = Dates.Hour(x) - first(H[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Hour(new_t)
         push!(H, (new_x, new_t))
@@ -282,7 +286,7 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     dsb = spinbutton(-1:32, widget=b["day"], observable=dint)
     on(dint; weak=true) do x
         Δ = Dates.Day(x) - first(d[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Day(new_t)
         push!(d, (new_x, new_t))
@@ -294,7 +298,7 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     msb = spinbutton(-1:13, widget=b["month"], observable=mint)
     on(mint; weak=true) do x
         Δ = Dates.Month(x) - first(m[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Month(new_t)
         push!(m, (new_x, new_t))
@@ -306,7 +310,7 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     ysb = spinbutton(-1:10000, widget=b["year"], observable=yint)
     on(yint; weak=true) do x
         Δ = Dates.Year(x) - first(y[])
-        new_t = observable[] + Δ
+        new_t = theobservable[] + Δ
         new_t = new_t < zerotime ? zerotime : new_t
         new_x = Dates.Year(new_t)
         push!(y, (new_x, new_t))
@@ -316,10 +320,10 @@ function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     connect_nofire!(yint, yint3)
 
     if widget === nothing
-        return TimeWidget(observable, b["frame"])
+        return TimeWidget(theobservable, b["frame"])
     else
         push!(widget, b["frame"])
-        return TimeWidget(observable, widget)
+        return TimeWidget(theobservable, widget)
     end
 end
 
