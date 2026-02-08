@@ -347,8 +347,10 @@ function button(;
                 observable=nothing,
                 own=nothing)
     obsin = observable
-    if observable === nothing
-        observable = Observable(nothing)
+    theobservable = if observable === nothing
+        Observable(nothing)
+    else
+        observable
     end
     if own === nothing
         own = observable != obsin
@@ -358,10 +360,10 @@ function button(;
     end
 
     id = signal_connect(widget, "clicked") do w
-        setindex!(observable, nothing)
+        setindex!(theobservable, nothing)
     end
 
-    Button(observable, widget, id)
+    Button(theobservable, widget, id)
 end
 button(label::Union{String,Symbol}; widget=nothing, observable=nothing, own=nothing) =
     button(; label=label, widget=widget, observable=observable, own=own)
@@ -404,22 +406,23 @@ function colorbutton(;
     end
     getcolor(w) = Gtk4.rgba(GtkColorChooser(w))
     setcolor!(w, val) = set_gtk_property!(w, :rgba, convert(Gtk4.GdkRGBA, val))
-    if widget === nothing
-        widget = GtkColorButton(convert(Gtk4.GdkRGBA, color))
+    thewidget = if widget === nothing
+        GtkColorButton(convert(Gtk4.GdkRGBA, color))
     else
         setcolor!(widget, color)
+        widget
     end
-    id = signal_connect(widget, "color-set") do w
+    id = signal_connect(thewidget, "color-set") do w
         setindex!(observable, convert(C, convert(RGBA, getcolor(widget))))
     end
     preserved = []
-    push!(preserved, init_observable2widget(getcolor, setcolor!, widget, id, observable))
+    push!(preserved, init_observable2widget(getcolor, setcolor!, thewidget, id, observable))
 
     if own
-        ondestroy(widget, preserved)
+        ondestroy(thewidget, preserved)
     end
 
-    ColorButton{C}(observable, widget, id, preserved)
+    ColorButton{C}(observable, thewidget, id, preserved)
 end
 colorbutton(color::Color{T, 3}; widget=nothing, observable=nothing, own=nothing) where T =
     colorbutton(; color=color, widget=widget, observable=observable, own=own)
@@ -1164,21 +1167,22 @@ function progressbar(interval::AbstractInterval{T};
     if own === nothing
         own = observable != obsin
     end
-    if widget === nothing
-        widget = GtkProgressBar()
+    thewidget = if widget === nothing
+        GtkProgressBar()
     else
         set_gtk_property!(widget, "fraction", interval2fraction(interval, value))
+        widget
     end
     preserved = []
     if syncsig
         push!(preserved, on(observable; weak=true) do val
-            set_gtk_property!(widget, "fraction", interval2fraction(interval, val))
+            set_gtk_property!(thewidget, "fraction", interval2fraction(interval, val))
         end)
     end
     if own
-        ondestroy(widget, preserved)
+        ondestroy(thewidget, preserved)
     end
-    ProgressBar(observable, widget, preserved)
+    ProgressBar(observable, thewidget, preserved)
 end
 
 progressbar(range::AbstractRange; args...) = progressbar(ClosedInterval(range); args...)
