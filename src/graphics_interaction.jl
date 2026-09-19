@@ -326,11 +326,17 @@ function copy_cb(::Ptr,par,c)
 end
 
 """
-    GtkObservables.Canvas{U}(w=-1, h=-1, own=true)
+    GtkObservables.Canvas{U}(w=-1, h=-1; own=true, init_back=false, modifier_ref=nothing)
 
-Create a canvas for drawing and interaction. The relevant fields are:
+Create a canvas for drawing and interaction. The keyword arguments are
+described
+under [`canvas`](@ref). The relevant fields are:
   - `widget`: the "raw" Gtk widget (from Gtk4.jl)
   - `mouse`: the [`MouseHandler{U}`](@ref) for this canvas.
+
+The canvas provides the actions `canvas.save` (write the image to a PNG
+file) and `canvas.copy` (copy the image to the clipboard), which can be
+attached to menus or shortcuts.
 
 See also [`canvas`](@ref).
 """
@@ -363,12 +369,17 @@ Canvas{U}(w::Integer, h::Integer=-1; own::Bool=true, init_back = false, modifier
 Base.show(io::IO, canvas::Canvas{U}) where U = print(io, "GtkObservables.Canvas{$U}()")
 
 """
-    canvas(U=DeviceUnit, w=-1, h=-1) - c::GtkObservables.Canvas
+    canvas(U=DeviceUnit, w=-1, h=-1; init_back=false, modifier_ref=nothing) -> c::GtkObservables.Canvas
+    canvas(w, h; init_back=false, modifier_ref=nothing) -> c::GtkObservables.Canvas
 
 Create a canvas for drawing and interaction. Optionally specify the
 width `w` and height `h`. `U` refers to the units for the canvas (for
 both drawing and reporting mouse pointer positions), see
-[`DeviceUnit`](@ref) and [`UserUnit`](@ref). See also [`GtkObservables.Canvas`](@ref).
+[`DeviceUnit`](@ref) and [`UserUnit`](@ref). `init_back=true` creates
+the canvas's image surface immediately, which is useful for precompilation.
+`modifier_ref` is a `Ref` holding the keyboard-modifier state reported in
+mouse events; it exists so tests can simulate events. See also
+[`GtkObservables.Canvas`](@ref).
 """
 canvas(::Type{U}=DeviceUnit, w::Integer=-1, h::Integer=-1; init_back=false, modifier_ref=nothing) where {U<:CairoUnit} = Canvas{U}(w, h; init_back=init_back, modifier_ref=modifier_ref)
 canvas(w::Integer, h::Integer; init_back=false, modifier_ref=nothing) = canvas(DeviceUnit, w, h; init_back=init_back, modifier_ref=modifier_ref)
@@ -472,12 +483,16 @@ end
 """
     ZoomRegion(fullinds) -> zr
     ZoomRegion(fullinds, currentinds) -> zr
-    ZoomRegion(img::AbstractMatrix) -> zr
+    ZoomRegion(img) -> zr
+    ZoomRegion(fullview::XY, currentview::XY) -> zr
+    ZoomRegion(fullview::XY, bb::BoundingBox) -> zr
 
 Create a `ZoomRegion` object `zr` for selecting a rectangular
-region-of-interest for zooming and panning. `fullinds` should be a
-pair `(yrange, xrange)` of indices, an [`XY`](@ref) object, or pass a
-matrix `img` from which the indices will be taken.
+region-of-interest for zooming and panning. `fullinds` and `currentinds`
+should be pairs `(yrange, xrange)` of integer unit ranges. Pass an array
+`img` to take the indices from `axes(img)`. `fullview` and `currentview`
+are [`XY`](@ref) objects holding `ClosedInterval`s; if `bb` is provided,
+the current view is set to it.
 
 `zr.currentview` holds the currently-active region of
 interest. `zr.fullview` stores the original `fullinds` from which `zr` was
@@ -588,23 +603,25 @@ end
 """
     signals = init_pan_scroll(canvas::GtkObservables.Canvas,
                               zr::Observable{ZoomRegion},
-                              filter_x::Function = evt->evt.modifiers == SHIFT || event.direction == LEFT || event.direction == RIGHT,
-                              filter_y::Function = evt->evt.modifiers == 0 || event.direction == UP || event.direction == DOWN,
+                              filter_x::Function = evt->(evt.modifiers & SHIFT) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT,
+                              filter_y::Function = evt->(evt.modifiers & SHIFT) == 0 && (evt.direction == UP || evt.direction == DOWN),
                               xpanflip = false,
                               ypanflip  = false)
 
 Initialize panning-by-mouse-scroll for `canvas` and update
 `zr`. `signals` is a dictionary holding the Observables.jl signals needed
 for scroll-panning; you can push `true/false` to `signals["enabled"]`
-to turn scroll-panning on and off, respectively. Your application is
-responsible for making sure that `signals` does not get
-garbage-collected (which would turn off scroll-panning).
+to turn scroll-panning on and off, respectively. The `"pan"` entry is
+the scroll handler. Your application is responsible for making sure that
+`signals` does not get garbage-collected (which would turn off
+scroll-panning).
 
 `filter_x` and `filter_y` are functions that return `true` when the
 conditions for x- and y-scrolling are met; the argument is a
-[`MouseScroll`](@ref) event. The defaults are that vertical scrolling
-is triggered with an unmodified scroll, whereas horizontal scrolling
-is triggered by scrolling while holding down the SHIFT key.
+[`MouseScroll`](@ref) event. By default, vertical scrolling pans in y
+when SHIFT is not held, whereas scrolling while holding down the SHIFT
+key, or scrolling horizontally, pans in x. Scroll events with the CONTROL
+key held are ignored, since they are reserved for zooming.
 
 You can flip the direction of either pan operation with `xpanflip` and
 `ypanflip`, respectively.
@@ -626,9 +643,9 @@ function init_pan_scroll(canvas::Canvas{U},
             end
             s = 0.1*scrollpm(event.direction)
             if filter_x(event)
-                setindex!(zr, pan_x(zr[], s))
+                setindex!(zr, pan_x(zr[], xpanflip ? -s : s))
             elseif filter_y(event)
-                setindex!(zr, pan_y(zr[], s))
+                setindex!(zr, pan_y(zr[], ypanflip ? -s : s))
             end
         end
         return nothing
@@ -639,18 +656,19 @@ end
 """
     signals = init_pan_drag(canvas::GtkObservables.Canvas,
                             zr::Observable{ZoomRegion},
-                            initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.modifiers == 0))
+                            initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && (btn.modifiers & CONTROL) == 0))
 
 Initialize click-drag panning that updates `zr`. `signals` is a
-dictionary holding the Observables.jl signals needed for pan-drag; you
-can push `true/false` to `signals["enabled"]` to turn it on and off,
-respectively. Your application is responsible for making sure that
-`signals` does not get garbage-collected (which would turn off
-pan-dragging).
+dictionary holding the signals needed for pan-drag:
+`signals["active"]` is `true` while a drag is in progress, and the
+`"init"`, `"drag"`, and `"finish"` entries are the mouse-event handlers.
+Your application is responsible for making sure that `signals` does not
+get garbage-collected (which would turn off pan-dragging).
 
 `initiate(btn)` returns `true` when the condition for starting
-click-drag panning has been met (by default, clicking mouse button
-1). The argument `btn` is a [`MouseButton`](@ref) event.
+click-drag panning has been met (by default, clicking mouse button 1
+without holding the CONTROL key, which is reserved for zooming). The
+argument `btn` is a [`MouseButton`](@ref) event.
 """
 function init_pan_drag(canvas::Canvas{U},
                        zr::Observable{ZoomRegion{T}},
@@ -697,30 +715,32 @@ pandrag_init_default(btn) = btn.clicktype == BUTTON_PRESS && pandrag_button(btn)
 """
     signals = init_zoom_scroll(canvas::GtkObservables.Canvas,
                                zr::Observable{ZoomRegion},
-                               filter::Function = evt->evt.modifiers == CONTROL,
+                               filter::Function = evt->(evt.modifiers & CONTROL) == CONTROL,
                                focus::Symbol = :pointer,
                                factor = 2.0,
                                flip = false)
 
 Initialize zooming-by-mouse-scroll for `canvas` and update
-`zr`. `signals` is a dictionary holding the Observables.jl signals needed
+`zr`. `signals` is a dictionary holding the signals needed
 for scroll-zooming; you can push `true/false` to `signals["enabled"]`
-to turn scroll-zooming on and off, respectively. Your application is
-responsible for making sure that `signals` does not get
-garbage-collected (which would turn off scroll-zooming).
+to turn scroll-zooming on and off, respectively. The `"zoom"` entry is
+the scroll handler. Your application is responsible for making sure that
+`signals` does not get garbage-collected (which would turn off
+scroll-zooming).
 
 `filter` is a function that returns `true` when the conditions for
 scroll-zooming are met; the argument is a [`MouseScroll`](@ref)
 event. The default is to hold down the CONTROL key while scrolling the
 mouse.
 
-The `focus` keyword controls how the zooming progresses as you scroll
+The `focus` argument controls how the zooming progresses as you scroll
 the mouse wheel. `:pointer` means that whatever feature of the canvas
 is under the pointer will stay there as you zoom in or out. The other
 choice, `:center`, keeps the canvas centered on its current location.
 
-You can change the amount of zooming via `factor` and the direction of
-zooming with `flip`.
+Each scroll step scales the visible region by `factor`; scrolling up
+zooms in and scrolling down zooms out. Pass `flip=true` to reverse the
+direction.
 """
 function init_zoom_scroll(canvas::Canvas{U},
                           zr::Observable{ZoomRegion{T}},
