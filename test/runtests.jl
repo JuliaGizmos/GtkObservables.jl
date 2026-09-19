@@ -691,7 +691,19 @@ end
     signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
     @test zr[].currentview.x == 3..13
     @test zr[].currentview.y == 3..9
-    
+
+    # Flipped pan-scroll reverses the direction in both axes
+    pans["enabled"][] = false
+    filter_x = evt->(evt.modifiers & SHIFT) == SHIFT || evt.direction == LEFT || evt.direction == RIGHT
+    filter_y = evt->(evt.modifiers & SHIFT) == 0 && (evt.direction == UP || evt.direction == DOWN)
+    pansflip = init_pan_scroll(c, zr, filter_x, filter_y, true, true)
+    signal_emit(ecs, "scroll", Bool, -1.0, 0.0)
+    @test zr[].currentview.x == 4..14
+    @test zr[].currentview.y == 3..9
+    signal_emit(ecs, "scroll", Bool, 0.0, 1.0)
+    @test zr[].currentview.x == 4..14
+    @test zr[].currentview.y == 2..8
+
     destroy(win)
 end
 
