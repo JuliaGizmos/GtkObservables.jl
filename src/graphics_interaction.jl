@@ -124,8 +124,8 @@ The fieldnames are the same as the argument names above.
     MouseButton{UserUnit}()
     MouseButton{DeviceUnit}()
 
-Create a "dummy" MouseButton event. Often useful for the fallback to
-Observables's `filterwhen`.
+Create a "dummy" MouseButton event, useful as the initial value of an
+`Observable` that will later hold events.
 """
 struct MouseButton{U<:CairoUnit}
     position::XY{U}
@@ -173,15 +173,15 @@ A type to hold information about a mouse wheel scroll. `position` is the
 canvas position of the pointer (see
 [`XY`](@ref)). `direction` may be `UP`, `DOWN`, `LEFT`, or
 `RIGHT`. `modifiers` indicates whether any keys were held down during
-the click; they may be 0 (no modifiers) or any combination of `SHIFT`,
+the scroll; they may be 0 (no modifiers) or any combination of `SHIFT`,
 `CONTROL`, or `MOD1` stored as a bitfield.
 
 
     MouseScroll{UserUnit}()
     MouseScroll{DeviceUnit}()
 
-Create a "dummy" MouseScroll event. Often useful for the fallback to
-Observables's `filterwhen`.
+Create a "dummy" MouseScroll event, useful as the initial value of an
+`Observable` that will later hold events.
 """
 struct MouseScroll{U<:CairoUnit}
     position::XY{U}
@@ -552,7 +552,7 @@ pan_x(zr::ZoomRegion, s) =
 """
     pan_y(zr::ZoomRegion, frac) -> zr_new
 
-Pan the y-axis by a fraction `frac` of the current x-view. `frac>0` means
+Pan the y-axis by a fraction `frac` of the current y-view. `frac>0` means
 that the coordinates shift downward, which corresponds to an upward
 shift of objects.
 """
