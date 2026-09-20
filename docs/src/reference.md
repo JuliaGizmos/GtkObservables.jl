@@ -30,6 +30,15 @@ UserUnit
 GtkObservables.XY
 GtkObservables.MouseButton
 GtkObservables.MouseScroll
+SHIFT
+CONTROL
+MOD1
+BUTTON_PRESS
+BUTTON_RELEASE
+UP
+DOWN
+LEFT
+RIGHT
 ```
 
 ## Pan/zoom
