@@ -285,7 +285,7 @@ togglebutton(observable::Observable, widget::GtkToggleButton, id, preserved=[]) 
 
 Provide a togglebutton with the specified starting (boolean)
 `value`. Optionally provide:
-  - a GtkCheckButton `widget` (by default, creates a new one)
+  - a `widget` (by default, creates a new `GtkToggleButton`)
   - the (Observables.jl) `observable` coupled to this button (by default, creates a new observable)
   - a display `label` for this widget
 """
@@ -449,14 +449,21 @@ textbox(observable::Observable, widget::GtkButton, id, preserved = []) =
     Textbox(observable, widget, id, preserved)
 
 """
-    textbox(value=""; widget=nothing, observable=nothing, range=nothing, gtksignal=:activate)
-    textbox(T::Type; widget=nothing, observable=nothing, range=nothing, gtksignal=:activate)
-Create a box for entering text. `value` is the starting value; if you
-don't want to provide an initial value, you can constrain the type
-with `T`. Optionally specify the allowed range (e.g., `-10:10`)
-for numeric entries, and/or provide the (Observables.jl) `observable` coupled
-to this text box. Finally, you can specify which Gtk observable (e.g.
-`activate`, `changed`) you'd like the widget to update with.
+    textbox(value; widget=nothing, observable=nothing, range=nothing, syncsig=true, own=nothing, gtksignal="activate")
+    textbox(T::Type; widget=nothing, value=nothing, observable=nothing, range=nothing, syncsig=true, own=nothing, gtksignal="activate")
+
+Create a box for entering text. `value` is the starting value, and its type
+determines the type of the entry; if you don't want to provide an initial
+value, you can constrain the type with `T`. Optionally specify the allowed
+range (e.g., `-10:10`) for numeric entries, and/or provide the (Observables.jl)
+`observable` coupled to this text box. Entries that cannot be parsed as the
+required type revert to the previous value, and numeric entries are rounded
+to the nearest element of `range`.
+
+`gtksignal` is a `String` naming the Gtk4 signal that triggers updating the
+observable: `"activate"` (the default; pressing Enter), `"changed"` (every
+edit; not supported for numeric types), or `"focus-leave"` (the entry losing
+keyboard focus).
 """
 function textbox(::Type{T};
                  widget=nothing,
@@ -623,7 +630,8 @@ struct Dropdown <: InputWidget{String}
 end
 
 """
-    dropdown(choices; widget=nothing, value=first(choices), observable=nothing, label="", with_entry=true, icons, tooltips)
+    dropdown(choices; widget=nothing, value=nothing, observable=nothing, own=nothing)
+    dropdown(; choices, widget=nothing, value=nothing, observable=nothing, own=nothing)
 
 Create a "dropdown" widget. `choices` can be a vector (or other iterable) of
 options. These options might either be a list of strings, or a list of `choice::String => func` pairs
@@ -631,9 +639,8 @@ so that an action encoded by `func` can be taken when `choice` is selected.
 
 Optionally specify
   - the GtkComboBoxText `widget` (by default, creates a new one)
-  - the starting `value`
-  - the (Observables.jl) `observable` coupled to this slider (by default, creates a new observable)
-  - whether the widget should allow text entry
+  - the starting `value`; if it is `nothing` (the default), the first choice is selected
+  - the `observable` coupled to this dropdown (by default, creates a new observable)
 
 # Examples
 

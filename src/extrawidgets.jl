@@ -102,12 +102,16 @@ player(range::AbstractRange{Int}; style="with-textbox", id::Integer=1) =
 
 """
     player(range; style="with-textbox", id=1)
-    player(slice::Observable{Int}, range; style="with-textbox", id=1)
+    player(slice::Observable, range; style="with-textbox", id=1)
 
-Create a movie-player widget. This includes the standard play and stop
-buttons and a slider; style "with-textbox" also includes play
-backwards, step forward/backward, and a textbox for entering a
-slice by keyboard.
+Create a movie-player widget for the integer `range` and return a `Player`;
+`frame(p)` gives the `GtkFrame` holding the widget. The player's observable
+holds the currently selected index; pass your own `Observable` `slice` to
+couple the player to it.
+
+The only supported `style` is `"with-textbox"`, which provides play, play
+backwards, stop, and step forward/backward buttons, a slider, and a textbox
+for entering a slice by keyboard.
 
 You can create up to two player widgets for the same GUI, as long as
 you pass `id=1` and `id=2`, respectively.
@@ -131,10 +135,17 @@ struct TimeWidget{T <: Dates.TimeType} <: InputWidget{T}
 end
 
 """
-    timewidget(time)
+    timewidget(time; widget=nothing, observable=nothing)
 
-Return a time widget that includes the `Time` and a `GtkFrame` with the hour, minute, and
-second widgets in it. You can specify the specific `GtkFrame` widget (useful when using `GtkBuilder`). Time is guaranteed to be positive.
+Return a `TimeWidget` for the starting `Dates.Time` `time`. It holds a
+`GtkFrame` with hour, minute, and second spin buttons. Optionally provide:
+  - a container `widget` into which the frame is placed (useful when using
+    `GtkBuilder`); by default the frame itself is the widget
+  - the `observable` coupled to this widget (by default, creates a new
+    observable)
+
+Stepping a field past its limits carries into the next larger field. The
+`time` value is clamped so it is never negative.
 """
 function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
     zerotime = Dates.Time(0,0,0) # convenient since we'll use it frequently
@@ -205,12 +216,18 @@ function timewidget(t1::Dates.Time; widget=nothing, observable=nothing)
 end
 
 """
-    datetimewidget(datetime)
+    datetimewidget(datetime; widget=nothing, observable=nothing)
 
-Return a datetime widget that includes the `DateTime` and a `GtkBox` with the
-year, month, day, hour, minute, and second widgets in it. You can specify the
-specific `SpinButton` widgets for the hour, minute, and second (useful when using
-`GtkBuilder`). Date and time are guaranteed to be positive.
+Return a `TimeWidget` for the starting `DateTime` `datetime`. It holds a
+`GtkFrame` with year, month, day, hour, minute, and second spin buttons.
+Optionally provide:
+  - a container `widget` into which the frame is placed (useful when using
+    `GtkBuilder`); by default the frame itself is the widget
+  - the `observable` coupled to this widget (by default, creates a new
+    observable)
+
+Stepping a field past its limits carries into the next larger field. Date and
+time are guaranteed to be positive.
 """
 function datetimewidget(t1::DateTime; widget=nothing, observable=nothing)
     zerotime = DateTime(0,1,1,0,0,0)

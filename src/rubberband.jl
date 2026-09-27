@@ -1,22 +1,25 @@
 """
     signals = init_zoom_rubberband(canvas::GtkObservables.Canvas,
                                    zr::Observable{ZoomRegion},
-                                   initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 1 && btn.modifiers == CONTROL),
-                                   reset = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && btn.modifiers == CONTROL),
+                                   initiate = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 1 && (btn.modifiers & CONTROL) == CONTROL),
+                                   reset = btn->(btn.button == 1 && btn.clicktype == BUTTON_PRESS && btn.n_press == 2 && (btn.modifiers & CONTROL) == CONTROL),
                                    minpixels = 2)
 
 Initialize rubber-band selection that updates `zr`. `signals` is a
-dictionary holding the Observables.jl signals needed for rubber-banding;
-you can push `true/false` to `signals["enabled"]` to turn rubber
-banding on and off, respectively. Your application is responsible for
-making sure that `signals` does not get garbage-collected (which would
-turn off rubberbanding).
+dictionary holding the Observables.jl signals needed for rubber-banding.
+Push `true/false` to `signals["enabled"]` to turn rubber banding on and
+off, respectively; `signals["active"]` is `true` while a selection is in
+progress. The remaining entries (`"init"`, `"drag"`, and `"finish"`) are
+the mouse-event handlers. Your application is responsible for making sure
+that `signals` does not get garbage-collected (which would turn off
+rubberbanding).
 
 `initiate(btn)` returns `true` when the condition for starting a
-rubber-band selection has been met (by default, clicking mouse button
-1). The argument `btn` is a [`MouseButton`](@ref) event. `reset(btn)`
-returns true when restoring the full view (by default, double-clicking
-mouse button 1). `minpixels` can be used for aborting rubber-band
+rubber-band selection has been met (by default, clicking mouse button 1
+while holding the CONTROL key). The argument `btn` is a
+[`MouseButton`](@ref) event. `reset(btn)` returns `true` when restoring
+the full view (by default, double-clicking mouse button 1 while holding
+the CONTROL key). `minpixels` can be used for aborting rubber-band
 selections smaller than some threshold.
 """
 function init_zoom_rubberband(canvas::Canvas{U},
