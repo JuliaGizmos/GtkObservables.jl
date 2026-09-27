@@ -10,13 +10,19 @@ slider
 textbox
 textarea
 dropdown
+colorbutton
+spinbutton
+cyclicspinbutton
 player
+timewidget
+datetimewidget
 ```
 
 ## Output widgets
 
 ```@docs
 label
+progressbar
 ```
 
 ## Graphics
@@ -49,9 +55,9 @@ ZoomRegion
 
 Note that if you create a `zrsig::Observable{ZoomRegion}`, then
 ```julia
-push!(zrsig, XY(1..3, 1..5))
-push!(zrsig, (1..5, 1..3))
-push!(zrsig, (1:5, 1:3))
+zrsig[] = XY(1..3, 1..5)
+zrsig[] = (1..5, 1..3)
+zrsig[] = (1:5, 1:3)
 ```
 would all update the value of the `currentview` field to the same
 value (`x = 1..3` and `y = 1..5`).
@@ -70,6 +76,7 @@ init_pan_scroll
 ## API
 ```@docs
 observable
+widget
 frame
 GtkObservables.gc_preserve
 ```

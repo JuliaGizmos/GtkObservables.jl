@@ -38,6 +38,20 @@ At present, GtkObservables supports only a small subset of the
 is fairly straightforward to add new ones, and pull requests would be
 welcome.
 
+## Installation
+
+Install GtkObservables from the Julia package manager:
+
+```julia
+using Pkg
+Pkg.add("GtkObservables")
+```
+
+Gtk4.jl and its GTK libraries are installed automatically as dependencies.
+You will typically also want `using Gtk4` for windows and layout.
+GTK needs a display; on a headless Linux machine (e.g., in CI), run Julia
+under a virtual display such as `xvfb-run julia`.
+
 ## Concepts
 
 The central concept of Observables.jl is the `Observable`, a type that allows
