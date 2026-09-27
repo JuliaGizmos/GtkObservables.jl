@@ -22,3 +22,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+          # No accessibility bus on the runner; otherwise GTK prints a warning into doctest output.
+          GTK_A11Y: none
