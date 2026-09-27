@@ -115,7 +115,7 @@ by monitoring `lines` from the command line by clicking, dragging, and
 releasing.
 
 However, it's much more fun to see it in action. Let's set up a
-[`draw`](http://juliagtk.github.io/Gtk4.jl/dev/manual/canvas.html)
+[`draw`](https://juliagtk.github.io/Gtk4.jl/dev/manual/canvas/)
 method for the canvas, which will be called (1) whenever the window
 resizes (this is arranged by Gtk4.jl), or (2) whenever `lines` or
 `newline` update (because we supply them as arguments to the `draw`
